@@ -1,0 +1,210 @@
+{
+  "description": "30 short Paisaleaf drafts written by the team, with the brand-rule breaks we planted in each. 7 drafts are clean. 'acceptable' lists rules that are reasonable extra findings and are not counted against precision.",
+  "run_at": "23 Oct 2026",
+  "ai": "AI off (code checks only)",
+  "drafts": 30,
+  "expected": 34,
+  "true_positives": 30,
+  "false_positives": 0,
+  "missed": 4,
+  "precision_pct": 100.0,
+  "recall_pct": 88.2,
+  "by_dimension": {
+    "accessibility": {
+      "precision_pct": 100.0,
+      "recall_pct": 100.0,
+      "expected": 3
+    },
+    "claims": {
+      "precision_pct": 100.0,
+      "recall_pct": 91.7,
+      "expected": 12
+    },
+    "messaging": {
+      "precision_pct": 100.0,
+      "recall_pct": 100.0,
+      "expected": 4
+    },
+    "terminology": {
+      "precision_pct": 100.0,
+      "recall_pct": 100.0,
+      "expected": 8
+    },
+    "tone": {
+      "precision_pct": 100.0,
+      "recall_pct": 57.1,
+      "expected": 7
+    }
+  },
+  "details": [
+    {
+      "id": "T01",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T02",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T03",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T04",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T05",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T06",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T07",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T08",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T09",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T10",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T11",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T12",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T13",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T14",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T15",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T16",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T17",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T18",
+      "missed": [
+        {
+          "rule": "R-CLM-02",
+          "quote": "instantly"
+        }
+      ],
+      "extra": []
+    },
+    {
+      "id": "T19",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T20",
+      "missed": [
+        {
+          "rule": "R-TON-03",
+          "quote": "liquidity"
+        }
+      ],
+      "extra": []
+    },
+    {
+      "id": "T21",
+      "missed": [
+        {
+          "rule": "R-TON-04",
+          "quote": "grandpa"
+        }
+      ],
+      "extra": []
+    },
+    {
+      "id": "T22",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T23",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T24",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T25",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T26",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T27",
+      "missed": [
+        {
+          "rule": "R-TON-03"
+        }
+      ],
+      "extra": []
+    },
+    {
+      "id": "T28",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T29",
+      "missed": [],
+      "extra": []
+    },
+    {
+      "id": "T30",
+      "missed": [],
+      "extra": []
+    }
+  ]
+}
