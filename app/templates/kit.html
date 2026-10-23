@@ -4,7 +4,7 @@
 <div class="page-head">
   <h1>Brand Kit</h1>
   <p class="lead">Everything Brandproof checks against. Rules come from the brand guidelines, facts come with evidence and an expiry date. Changes apply to the next check.</p>
-  {% if role != 'brand' %}<div class="banner info">Read-only. Switch to <b>Arjun (Brand manager)</b> at the top right to add or edit rules, facts and colours.</div>{% endif %}
+  {% if role != 'brand' %}<div class="banner info">Read-only. Switch to <b>{{ roles.brand.name }} ({{ roles.brand.label }})</b> at the top right to add or edit rules, facts and colours.</div>{% endif %}
 </div>
 <nav class="kit-tabs" aria-label="Brand Kit sections">
   <a href="/kit?tab=rules" {% if tab == 'rules' %}aria-current="page"{% endif %}>Rules ({{ rows.rules | length }})</a>

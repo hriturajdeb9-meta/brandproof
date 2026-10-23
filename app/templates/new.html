@@ -7,7 +7,7 @@
   <p class="lead">Paste text, upload a Word document or an image (or text and an image together, like a social post). Brandproof checks it in about 10–20 seconds.</p>
 </div>
 {% if role == 'reviewer' %}
-<div class="flash error">Reviewers don't create drafts. Switch to <b>Priya (Creator)</b> at the top right.</div>
+<div class="flash error">Reviewers don't create drafts. Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right.</div>
 {% endif %}
 <form class="card form" method="post" action="/drafts" enctype="multipart/form-data" data-busy="Checking your draft… (about 10–20 seconds)">
   <div class="grid-2">

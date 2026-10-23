@@ -19,7 +19,7 @@
 <div class="banner ok"><b>Approved.</b> {% if approval %}{% if approval.action == 'draft.auto_approved' %}Cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}Approved by {{ approval.actor }}{% endif %} on {{ approval.created_at | when }}.{% endif %} Version {{ n }} is locked. See the approval record below.</div>
 {% elif draft.status == 'in_review' %}
 <div class="banner info"><b>In review.</b> Sent to a reviewer because {{ draft.review_reason }}.
-  {% if role == 'creator' %}Switch to <b>Meera (Reviewer)</b> at the top right to approve or request changes.{% endif %}</div>
+  {% if role == 'creator' %}Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.{% endif %}</div>
 {% elif draft.status == 'changes_requested' %}
 <div class="banner warn"><b>Changes requested.</b> Read the reviewer's comment below, update the draft, re-check and submit again.</div>
 {% elif role == 'reviewer' %}

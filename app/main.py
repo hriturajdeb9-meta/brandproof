@@ -36,11 +36,29 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_TEXT = 8000
 MAX_UPLOAD = 6 * 1024 * 1024
 
-ROLES = {
+DEFAULT_ROLES = {
     "creator": {"name": "Priya", "label": "Creator", "about": "Writes drafts, fixes findings, submits for review"},
     "reviewer": {"name": "Meera", "label": "Reviewer · Compliance", "about": "Approves drafts or requests changes"},
     "brand": {"name": "Arjun", "label": "Brand manager", "about": "Owns the Brand Kit; can also review"},
 }
+ROLE_KEYS = ("creator", "reviewer", "brand")
+
+
+def get_roles() -> dict:
+    """The three demo people. Names and titles can be changed on the Team page and are stored in the database."""
+    roles = {k: dict(v) for k, v in DEFAULT_ROLES.items()}
+    try:
+        saved = json.loads(db.get_meta("roles") or "{}") if db else {}
+    except ValueError:
+        saved = {}
+    for k in ROLE_KEYS:
+        for field in ("name", "label"):
+            val = str((saved.get(k) or {}).get(field) or "").strip()
+            if val:
+                roles[k][field] = val
+    return roles
+
+
 STATUS = {
     "checked": ("Checked", "Fix the findings, then submit"),
     "in_review": ("In review", "Waiting for a reviewer"),
@@ -77,6 +95,8 @@ ACTIVITY = {
     "review.changes_requested": "requested changes",
     "comment.added": "commented",
     "kit.seeded": "loaded the demo Brand Kit",
+    "team.updated": "renamed the demo people",
+    "team.reset": "reset the demo people to their default names",
 }
 
 
@@ -123,24 +143,25 @@ async def lifespan(app):
 # --------------------------------------------------------------------------- helpers
 def role_of(request: Request) -> str:
     r = request.cookies.get("bp_role", "creator")
-    return r if r in ROLES else "creator"
+    return r if r in ROLE_KEYS else "creator"
 
 
 def actor(request: Request) -> tuple[str, str]:
     r = role_of(request)
-    return ROLES[r]["name"], r
+    return get_roles()[r]["name"], r
 
 
 def need_role(request: Request, *allowed: str) -> None:
     if role_of(request) not in allowed:
-        names = " or ".join(ROLES[a]["label"] for a in allowed)
+        roles = get_roles()
+        names = " or ".join(f"{roles[a]['name']} ({roles[a]['label']})" for a in allowed)
         raise HTTPException(403, f"Switch to {names} (top right) to do this.")
 
 
 def render(request: Request, name: str, ctx: dict | None = None, status: int = 200):
     role = role_of(request)
     base = {
-        "role": role, "roles": ROLES, "persona": ROLES[role], "ai_label": ai.label, "ai_on": ai.enabled,
+        "role": role, "roles": (roles := get_roles()), "persona": roles[role], "ai_label": ai.label, "ai_on": ai.enabled,
         "storage": db.kind, "storage_warning": db.warning, "review_count": db.scalar(
             "SELECT COUNT(*) AS c FROM drafts WHERE status = 'in_review'") or 0,
         "STATUS": STATUS, "DIMENSION_LABELS": DIMENSION_LABELS, "DIMENSIONS": DIMENSIONS,
@@ -328,8 +349,10 @@ async def set_role(request: Request):
     back = form.get("back") or "/"
     if not back.startswith("/"):
         back = "/"
-    resp = go(back, f"You are now {ROLES.get(r, ROLES['creator'])['name']} ({ROLES.get(r, ROLES['creator'])['label']}).")
-    resp.set_cookie("bp_role", r if r in ROLES else "creator", max_age=60 * 60 * 24 * 30, samesite="lax")
+    r = r if r in ROLE_KEYS else "creator"
+    roles = get_roles()
+    resp = go(back, f"You are now {roles[r]['name']} ({roles[r]['label']}).")
+    resp.set_cookie("bp_role", r, max_age=60 * 60 * 24 * 30, samesite="lax")
     return resp
 
 
@@ -880,6 +903,30 @@ async def about_page(request: Request):
                                           "provider": ai.provider, "model": ai.model})
 
 
+async def team_page(request: Request):
+    return render(request, "team.html", {"defaults": DEFAULT_ROLES, "role_keys": ROLE_KEYS})
+
+
+async def team_save(request: Request):
+    need_role(request, "brand")
+    form = await read_form(request)
+    who = actor(request)
+    if form.get("reset") == "1":
+        db.set_meta("roles", "{}")
+        db.audit("team.reset", who[0], who[1], None, {})
+        return go("/team", "Names and titles reset to the defaults.")
+    saved = {}
+    for k in ROLE_KEYS:
+        name = re.sub(r"\s+", " ", str(form.get(f"{k}_name") or "")).strip()[:40]
+        label = re.sub(r"\s+", " ", str(form.get(f"{k}_label") or "")).strip()[:40]
+        if not name or not label:
+            return go("/team", "Every person needs a name and a title.", "error")
+        saved[k] = {"name": name, "label": label}
+    db.set_meta("roles", json.dumps(saved, ensure_ascii=False))
+    db.audit("team.updated", who[0], who[1], None, {k: f"{v['name']} ({v['label']})" for k, v in saved.items()})
+    return go("/team", "Saved. The new names and titles show everywhere straight away.")
+
+
 async def healthz(request: Request):
     return JSONResponse({"ok": True, "storage": db.kind, "ai": ai.label, "warning": db.warning})
 
@@ -916,6 +963,8 @@ routes = [
     Route("/kit/{table}.csv", kit_export),
     Route("/audit", audit_page),
     Route("/about", about_page),
+    Route("/team", team_page),
+    Route("/team", team_save, methods=["POST"]),
     Route("/healthz", healthz),
     Mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static"),
 ]

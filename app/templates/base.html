@@ -21,6 +21,7 @@
         <a href="/review" {% if path == '/review' %}aria-current="page"{% endif %}>Review queue{% if review_count %} <span class="count">{{ review_count }}</span>{% endif %}</a>
         <a href="/kit" {% if path.startswith('/kit') %}aria-current="page"{% endif %}>Brand Kit</a>
         <a href="/audit" {% if path == '/audit' %}aria-current="page"{% endif %}>Audit log</a>
+        <a href="/team" {% if path == '/team' %}aria-current="page"{% endif %}>Team</a>
         <a href="/about" {% if path == '/about' %}aria-current="page"{% endif %}>How it works</a>
       </nav>
       <form class="roles" method="post" action="/role" aria-label="Switch role">
@@ -46,7 +47,7 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="wrap foot">
-    <span>Brandproof · TechCircuit Hackathon 2026 · Team dibbankur</span>
+    <span>Brandproof · TechCircuit Hackathon 2026 · Team DIBBANKUR</span>
     <span><a href="/about#ai">AI disclosure</a> · <a href="/about#data">Data &amp; privacy</a> · storage: {{ storage }}</span>
   </footer>
   <script src="/static/app.js?v=3"></script>

@@ -20,6 +20,7 @@ Built by **Team dibbankur** for Round 2 of the TechCircuit Hackathon 2026 (probl
 | **Explainable findings** | Every finding shows the rule, the source page, the ledger fact (owner, evidence, expiry), the method (*Code check*, *AI, verified by code*, *AI-assessed*), confidence and a fix. Highlights in the text and boxes on the image link to the findings. |
 | **Fixes** | Accept, edit or reject (with a reason) each finding. Accepted fixes go into a working copy; findings inside replaced text are resolved automatically. Re-check creates a new version. Locked phrases can never be removed by a fix. |
 | **Review workflow** | Submit routes the draft: claims, rejected serious findings, open major findings or AI uncertainty → reviewer; otherwise auto-approved by policy. Reviewer approves or requests changes (comment required). Comments, version history with diffs, approval record. |
+| **Team page** | The brand manager can rename the three demo people and change their titles; the new names show everywhere at once. |
 | **Audit log** | Every check, fix, rejection, submission, approval and Brand Kit change, with who and when. |
 | **Transparency** | AI status shown on every page, "How it works" page with AI disclosure, per-call logging, and an accuracy report from our test set. |
 | **Resilience** | If the AI is missing, slow or rate-limited, all code checks still run and the page says what was skipped. AI answers are cached so the same draft gives the same report. |

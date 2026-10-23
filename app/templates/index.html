@@ -8,13 +8,13 @@
     <ol class="steps">
       <li><b>Check a draft.</b> Try the sample post below, or paste your own.</li>
       <li><b>Fix it.</b> Accept, edit or reject each finding, then re-check.</li>
-      <li><b>Submit.</b> Drafts with claims go to Meera (compliance). Switch to her at the top right to approve.</li>
+      <li><b>Submit.</b> Drafts with claims go to {{ roles.reviewer.name }} ({{ roles.reviewer.label }}). Switch to that role at the top right to approve.</li>
     </ol>
   </div>
   <div class="hero-cta card">
     <h2>Try it in 30 seconds</h2>
     {% if role == 'reviewer' %}
-      <p class="muted small">You are Meera, a reviewer. Switch to <b>Priya (Creator)</b> at the top right to create drafts, or open the review queue.</p>
+      <p class="muted small">You are {{ persona.name }}, a reviewer. Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right to create drafts, or open the review queue.</p>
       <a class="btn" href="/review">Open the review queue</a>
     {% else %}
       <form method="post" action="/samples/instagram" data-busy="Checking the sample… (about 10–20 seconds)">

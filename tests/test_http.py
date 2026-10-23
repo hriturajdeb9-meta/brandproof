@@ -128,6 +128,20 @@ class WorkflowTests(unittest.TestCase):
         csv_text = requests.get(self.base + "/kit/rules.csv").text
         self.assertIn("R-TON-09", csv_text)
 
+    def test_team_names_can_be_changed(self):
+        priya, arjun = self.session("creator"), self.session("brand")
+        self.assertEqual(requests.get(self.base + "/team").status_code, 200)
+        data = {"creator_name": "Riya", "creator_label": "Social media lead", "reviewer_name": "Kabir",
+                "reviewer_label": "Legal", "brand_name": "Arjun", "brand_label": "Brand manager"}
+        self.assertEqual(priya.post(self.base + "/team", data=data).status_code, 403)
+        r = arjun.post(self.base + "/team", data=dict(data, creator_name=""))
+        self.assertIn("needs a name", requests.utils.unquote(r.url))
+        r = arjun.post(self.base + "/team", data=data)
+        self.assertIn("Riya", r.text)
+        self.assertIn("Social media lead", requests.get(self.base + "/").text)
+        r = arjun.post(self.base + "/team", data={"reset": "1"})
+        self.assertIn("Priya", r.text)
+
 
 if __name__ == "__main__":
     unittest.main()
