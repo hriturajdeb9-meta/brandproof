@@ -45,14 +45,17 @@ class AIGateway:
                 provider = "none"
         self.provider = provider
         if provider == "gemini":
-            self.model = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+            self.model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+            # tried in order when a model is busy (HTTP 429/5xx), missing (404) or too slow
+            fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash-lite,gemini-flash-latest")
+            self.models = [self.model] + [m.strip() for m in fallbacks.split(",") if m.strip() and m.strip() != self.model]
         elif provider == "openai":
             self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
         elif provider == "fake":
             self.model = "fake"
         else:
             self.model = ""
-        self.timeout = float(os.environ.get("AI_TIMEOUT_SECONDS", "45"))
+        self.timeout = float(os.environ.get("AI_TIMEOUT_SECONDS", "25"))
         self.max_per_minute = int(os.environ.get("AI_MAX_CALLS_PER_MINUTE", "12"))
         self._recent: deque[float] = deque()
         self._lock = threading.Lock()
@@ -99,7 +102,7 @@ class AIGateway:
         t0 = time.time()
         try:
             if self.provider == "gemini":
-                text = self._gemini(system, prompt, image, image_mime)
+                text = self._gemini(system, prompt, image, image_mime, meta)
             elif self.provider == "openai":
                 text = self._openai(system, prompt, image, image_mime)
             else:
@@ -156,17 +159,42 @@ class AIGateway:
             return r.json()
         raise AIError(f"HTTP {last.status_code if last is not None else '?'} after retry")
 
-    def _gemini(self, system: str, prompt: str, image: bytes | None, mime: str) -> str:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+    def _gemini(self, system: str, prompt: str, image: bytes | None, mime: str, meta: dict | None = None) -> str:
+        """Try each configured Gemini model in turn; a busy, missing or slow model falls through to the next."""
+        errors = []
+        for model in self.models:
+            try:
+                text = self._gemini_once(model, system, prompt, image, mime)
+                if meta is not None:
+                    meta["model"] = model
+                return text
+            except requests.Timeout:
+                errors.append(f"{model}: timed out")
+            except AIError as exc:
+                msg = str(exc)
+                errors.append(f"{model}: {msg[:120]}")
+                if not re.match(r"HTTP (404|429|5\d\d)", msg):
+                    break  # bad key or bad request: another model won't help
+        raise AIError("; ".join(errors) or "no Gemini model configured")
+
+    def _gemini_once(self, model: str, system: str, prompt: str, image: bytes | None, mime: str) -> str:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         parts = [{"text": prompt}]
         if image:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(image).decode()}})
+        config = {"temperature": 0, "responseMimeType": "application/json"}
+        if model.startswith("gemini-2.5-flash"):
+            config["thinkingConfig"] = {"thinkingBudget": 0}  # these checks need speed, not long reasoning
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": parts}],
-            "generationConfig": {"temperature": 0, "responseMimeType": "application/json"},
+            "generationConfig": config,
         }
-        data = self._post(url, {"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"}, body)
+        r = requests.post(url, headers={"x-goog-api-key": os.environ["GEMINI_API_KEY"], "Content-Type": "application/json"},
+                          json=body, timeout=self.timeout)
+        if r.status_code >= 400:
+            raise AIError(f"HTTP {r.status_code}: {r.text[:200]}")
+        data = r.json()
         candidates = data.get("candidates") or []
         if not candidates:
             reason = (data.get("promptFeedback") or {}).get("blockReason", "no candidates")

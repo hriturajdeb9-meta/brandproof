@@ -15,4 +15,4 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-flash-latest
+        value: gemini-2.5-flash

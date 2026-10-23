@@ -44,7 +44,7 @@ The AI never decides a claim's verdict on its own, and it never changes, approve
 
 - **One Python web service:** [Starlette](https://www.starlette.io/) (the framework FastAPI is built on) with server-rendered Jinja2 pages, plain CSS and a few lines of JavaScript. Every action works as a normal HTML form.
 - **Database:** PostgreSQL when `DATABASE_URL` is set (we use Supabase), otherwise a local SQLite file. All SQL runs on both.
-- **AI gateway:** `app/ai.py` is the only module that calls an AI provider. Google Gemini by default (`gemini-flash-latest`), or any OpenAI-compatible API. It logs every call, caches answers by input hash and limits calls per minute to protect the free quota.
+- **AI gateway:** `app/ai.py` is the only module that calls an AI provider. Google Gemini by default (`gemini-2.5-flash`), or any OpenAI-compatible API. It logs every call, caches answers by input hash and limits calls per minute to protect the free quota.
 - **Image analysis:** Pillow. Colours are measured with median-cut grouping and the most common real pixel colour, compared with the palette using CIEDE2000, and contrast is measured with the WCAG formula.
 
 ```
