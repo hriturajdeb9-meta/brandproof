@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Review queue{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Review queue</h1>
+  <p class="lead">Only drafts that need a human come here: ones with claims, rejected serious findings or AI uncertainty. Clean drafts are cleared automatically.</p>
+</div>
+{% if role == 'creator' %}<div class="banner info">You are Priya (Creator). Switch to <b>Meera (Reviewer)</b> at the top right to approve or request changes.</div>{% endif %}
+<section class="card">
+  <h2>Waiting for review ({{ drafts | length }})</h2>
+  {% if drafts %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Draft</th><th>Why it needs review</th><th>Submitted</th><th></th></tr></thead>
+    <tbody>{% for d in drafts %}
+      <tr><td><b>{{ d.title }}</b><div class="small muted">{{ d.channel }} · by {{ d.created_by }} · v{{ d.current_version }}</div></td>
+      <td>{{ d.review_reason }}</td><td class="small muted">{{ d.updated_at | when }}</td>
+      <td><a class="btn btn-small btn-primary" href="/drafts/{{ d.id }}">Review</a></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="empty">Nothing to review right now. Submit a draft as Priya to see it here.</p>{% endif %}
+</section>
+{% if recent %}
+<section class="card">
+  <h2>Recently decided</h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Draft</th><th>Status</th><th>Updated</th></tr></thead>
+    <tbody>{% for d in recent %}<tr><td><a href="/drafts/{{ d.id }}">{{ d.title }}</a></td><td><span class="status st-{{ d.status }}">{{ STATUS[d.status][0] }}</span></td><td class="small muted">{{ d.updated_at | when }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+{% endblock %}

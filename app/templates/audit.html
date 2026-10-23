@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Audit log</h1>
+  <p class="lead">Every check, fix, rejection, approval and Brand Kit change, with who did it and when. Entries are only ever added, never edited.</p>
+</div>
+<section class="card">
+  <div class="table-wrap"><table class="table small">
+    <thead><tr><th>When</th><th>Who</th><th>What</th><th>Draft</th><th>Details</th></tr></thead>
+    <tbody>{% for a in rows %}
+      <tr><td class="muted nowrap">{{ a.created_at | when }}</td>
+        <td>{{ a.actor }}<div class="muted">{{ roles[a.role].label if a.role in roles else a.role }}</div></td>
+        <td>{{ a.action | activity }}</td>
+        <td>{% if a.draft_id %}<a href="/drafts/{{ a.draft_id }}">{{ a.draft_title or ('#' ~ a.draft_id) }}</a>{% endif %}</td>
+        <td class="detail">{% for k, v in a.detail_obj.items() %}{% if v not in ('', [], {}, none) %}<span><b>{{ k | replace('_', ' ') }}:</b> {{ v if v is string or v is number else v | tojson }}</span> {% endif %}{% endfor %}</td></tr>
+    {% else %}<tr><td colspan="5" class="empty">Nothing yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endblock %}

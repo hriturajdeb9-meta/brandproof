@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ code }}{% endblock %}
+{% block content %}
+<section class="card error-card">
+  <h1>{% if code == 403 %}Switch role to continue{% elif code == 404 %}Not found{% else %}Something went wrong{% endif %}</h1>
+  <p class="lead">{{ detail }}</p>
+  <p><a class="btn" href="/">Back to drafts</a></p>
+</section>
+{% endblock %}

@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Brand Kit{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Brand Kit</h1>
+  <p class="lead">Everything Brandproof checks against. Rules come from the brand guidelines, facts come with evidence and an expiry date. Changes apply to the next check.</p>
+  {% if role != 'brand' %}<div class="banner info">Read-only. Switch to <b>Arjun (Brand manager)</b> at the top right to add or edit rules, facts and colours.</div>{% endif %}
+</div>
+<nav class="kit-tabs" aria-label="Brand Kit sections">
+  <a href="/kit?tab=rules" {% if tab == 'rules' %}aria-current="page"{% endif %}>Rules ({{ rows.rules | length }})</a>
+  <a href="/kit?tab=glossary" {% if tab == 'glossary' %}aria-current="page"{% endif %}>Glossary ({{ rows.glossary | length }})</a>
+  <a href="/kit?tab=facts" {% if tab == 'facts' %}aria-current="page"{% endif %}>Claim Ledger ({{ rows.facts | length }})</a>
+  <a href="/kit?tab=palette" {% if tab == 'palette' %}aria-current="page"{% endif %}>Palette ({{ rows.palette | length }})</a>
+  <span class="muted small kit-ver">kit version {{ kit_hash }}</span>
+</nav>
+
+{% if tab == 'rules' %}
+<section class="card">
+  <div class="table-wrap"><table class="table rules-table">
+    <thead><tr><th>ID</th><th>Rule</th><th>Dimension</th><th>Severity</th><th>How it's checked</th><th>Source</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for r in rows.rules %}
+      <tr id="r-{{ r.id }}" {% if not r.active %}class="inactive"{% endif %}>
+        <td><b>{{ r.id }}</b></td>
+        <td><b>{{ r.title }}</b>{% if r.description %}<div class="small">{{ r.description }}</div>{% endif %}
+          <div class="small"><span class="ok-text">Do:</span> {{ r.do_example }} · <span class="bad-text">Don't:</span> {{ r.dont_example }}</div>
+          {% if r.pattern %}<div class="small muted mono">pattern: {{ r.pattern }}</div>{% endif %}</td>
+        <td>{{ DIMENSION_LABELS.get(r.dimension, r.dimension) }}</td>
+        <td><span class="tag sev-{{ r.severity }}">{{ r.severity }}</span></td>
+        <td>{% if r.method == 'code' %}Code{% elif r.method == 'ai' %}AI (verified){% else %}Code + AI{% endif %}{% if not r.active %}<div class="tag">inactive</div>{% endif %}</td>
+        <td class="small">{{ r.source }}</td>
+        {% if role == 'brand' %}<td><a class="btn btn-small" href="/kit?tab=rules&edit={{ r.id }}#form">Edit</a></td>{% endif %}
+      </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% elif tab == 'glossary' %}
+<section class="card">
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Use</th><th>Instead of</th><th>Note</th><th>Rule</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for g in rows.glossary %}<tr><td><b>{{ g.preferred }}</b></td><td>{{ g.avoid }}</td><td class="small">{{ g.note }}</td><td>{{ g.rule_id }}</td>
+      {% if role == 'brand' %}<td><a class="btn btn-small" href="/kit?tab=glossary&edit={{ g.id }}#form">Edit</a></td>{% endif %}</tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% elif tab == 'facts' %}
+<section class="card">
+  <p class="small muted">Code compares every number in a claim with these facts. A fact past its valid-until date makes claims that use it <b>Outdated</b>.</p>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>ID</th><th>Fact</th><th>Approved wording</th><th>Owner &amp; evidence</th><th>Valid until</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for f in rows.facts %}<tr>
+      <td><b>{{ f.id }}</b><div class="small muted">{{ f.topic }}</div></td>
+      <td><b>{{ f.label }}</b><div class="small">{{ f.statement }}</div>{% if f.value %}<div class="small muted">value: {{ f.value }}</div>{% endif %}</td>
+      <td class="small">{{ f.approved_wording }}</td>
+      <td class="small">{{ f.owner }}<div class="muted">{{ f.evidence }}</div></td>
+      <td>{{ f.valid_until }}{% if f.days_left is not none %}<div>{% if f.days_left < 0 %}<span class="tag sev-major">expired</span>{% elif f.days_left <= 30 %}<span class="tag sev-minor">{{ f.days_left }} days left</span>{% else %}<span class="tag ok">valid</span>{% endif %}</div>{% endif %}</td>
+      {% if role == 'brand' %}<td><a class="btn btn-small" href="/kit?tab=facts&edit={{ f.id }}#form">Edit</a></td>{% endif %}
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% elif tab == 'palette' %}
+<section class="card">
+  <div class="palette">{% for p in rows.palette %}
+    <div class="chip"><span class="chip-sw" style="background: {{ p.hex }}"></span><b>{{ p.name }}</b><span class="mono small">{{ p.hex }}</span>
+      {% if role == 'brand' %}<a class="small" href="/kit?tab=palette&edit={{ p.id }}#form">Edit</a>{% endif %}</div>{% endfor %}
+  </div>
+  <p class="small muted">Image colours further than ΔE 10 (CIEDE2000) from every palette colour are flagged. The required disclaimer is: “{{ disclaimer }}”</p>
+</section>
+{% endif %}
+
+{% if role == 'brand' %}
+<section class="card" id="form">
+  <h2>{% if editing %}Edit{% else %}Add{% endif %} {{ {'rules': 'rule', 'glossary': 'glossary entry', 'facts': 'fact', 'palette': 'colour'}[tab] }}</h2>
+  <form class="form" method="post" action="/kit/{{ tab }}/save">
+    {% if editing and tab in ('glossary', 'palette') %}<input type="hidden" name="row_id" value="{{ editing.id }}">{% endif %}
+    {% set e = editing or {} %}
+    {% if tab == 'rules' %}
+      <div class="grid-3">
+        <label>Rule ID<input name="id" required value="{{ e.id or '' }}" placeholder="R-TON-05" {% if editing %}readonly{% endif %}></label>
+        <label>Dimension<select name="dimension">{% for d in DIMENSIONS %}<option value="{{ d }}" {% if e.dimension == d %}selected{% endif %}>{{ DIMENSION_LABELS[d] }}</option>{% endfor %}</select></label>
+        <label>Severity<select name="severity">{% for s in ['blocker','major','minor'] %}<option {% if e.severity == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+      </div>
+      <label>Title<input name="title" required value="{{ e.title or '' }}"></label>
+      <label>Description<textarea name="description" rows="2">{{ e.description or '' }}</textarea></label>
+      <div class="grid-2">
+        <label>Do example<input name="do_example" value="{{ e.do_example or '' }}"></label>
+        <label>Don't example<input name="dont_example" value="{{ e.dont_example or '' }}"></label>
+      </div>
+      <div class="grid-3">
+        <label>How it's checked<select name="method">{% for m, l in [('code','Code (pattern)'),('ai','AI (verified)'),('code+ai','Code + AI')] %}<option value="{{ m }}" {% if e.method == m %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+        <label>Pattern <span class="hint">regex, for code rules</span><input name="pattern" class="mono" value="{{ e.pattern or '' }}"></label>
+        <label>Fix hint <span class="hint">remove · replace: text · map: a=&gt;b · advice</span><input name="fix_hint" value="{{ e.fix_hint or '' }}"></label>
+      </div>
+      <div class="grid-2">
+        <label>Source<input name="source" value="{{ e.source or '' }}" placeholder="Brand Guidelines v3, §3.1, p. 6"></label>
+        <label class="check"><input type="checkbox" name="active" value="1" {% if not editing or e.active %}checked{% endif %}> Active</label>
+      </div>
+      <input type="hidden" name="active_present" value="1">
+    {% elif tab == 'glossary' %}
+      <div class="grid-2">
+        <label>Use this<input name="preferred" required value="{{ e.preferred or '' }}"></label>
+        <label>Instead of <span class="hint">comma-separated</span><input name="avoid" required value="{{ e.avoid or '' }}"></label>
+      </div>
+      <div class="grid-2">
+        <label>Note<input name="note" value="{{ e.note or '' }}"></label>
+        <label>Rule ID<input name="rule_id" value="{{ e.rule_id or 'R-TRM-01' }}"></label>
+      </div>
+    {% elif tab == 'facts' %}
+      <div class="grid-3">
+        <label>Fact ID<input name="id" required value="{{ e.id or '' }}" placeholder="F-14" {% if editing %}readonly{% endif %}></label>
+        <label>Topic <span class="hint">facts with the same topic are versions of each other</span><input name="topic" value="{{ e.topic or '' }}"></label>
+        <label>Label<input name="label" required value="{{ e.label or '' }}"></label>
+      </div>
+      <label>Statement<input name="statement" required value="{{ e.statement or '' }}"></label>
+      <div class="grid-3">
+        <label>Number value <span class="hint">compared by code</span><input name="value" value="{{ e.value or '' }}"></label>
+        <label>Valid until<input type="date" name="valid_until" value="{{ e.valid_until or '' }}"></label>
+        <label>Owner<input name="owner" value="{{ e.owner or '' }}"></label>
+      </div>
+      <label>Approved wording<input name="approved_wording" value="{{ e.approved_wording or '' }}"></label>
+      <div class="grid-2">
+        <label>Keywords <span class="hint">comma-separated</span><input name="keywords" value="{{ e.keywords or '' }}"></label>
+        <label>Evidence<input name="evidence" value="{{ e.evidence or '' }}"></label>
+      </div>
+    {% elif tab == 'palette' %}
+      <div class="grid-2">
+        <label>Name<input name="name" required value="{{ e.name or '' }}"></label>
+        <label>Hex<input name="hex" required value="{{ e.hex or '' }}" placeholder="#11734F"></label>
+      </div>
+    {% endif %}
+    <div class="row-actions">
+      <button class="btn btn-primary" type="submit">Save</button>
+      {% if editing %}<a class="btn" href="/kit?tab={{ tab }}">Cancel</a>{% endif %}
+    </div>
+  </form>
+  {% if editing %}
+  <form method="post" action="/kit/{{ tab }}/delete" data-confirm="Delete this item?" class="del-form">
+    <input type="hidden" name="row_id" value="{{ editing.id }}"><button class="btn btn-small btn-danger" type="submit">Delete</button>
+  </form>
+  {% endif %}
+</section>
+<section class="card">
+  <h2>Import or export CSV</h2>
+  <p class="small muted">Columns: {{ fields[tab] | join(', ') }}. Rows with an existing ID are updated.</p>
+  <form class="row-actions" method="post" action="/kit/{{ tab }}/import" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".csv,text/csv" required>
+    <button class="btn" type="submit">Import</button>
+    <a class="btn" href="/kit/{{ tab }}.csv">Download {{ tab }}.csv</a>
+  </form>
+</section>
+{% else %}
+<p class="small"><a href="/kit/{{ tab }}.csv">Download {{ tab }}.csv</a></p>
+{% endif %}
+{% endblock %}

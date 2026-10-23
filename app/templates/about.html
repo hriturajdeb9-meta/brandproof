@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}How it works{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>How Brandproof works</h1>
+  <p class="lead">A pre-publication checkpoint: every draft is checked against the Brand Kit before anyone publishes it. Code does everything it can; AI is used only where judgment is needed, and code checks the AI's answers.</p>
+</div>
+
+<section class="card">
+  <h2>The check, step by step</h2>
+  <ol class="pipeline">
+    <li><b>Read.</b> Text is taken from the text box or a .docx file. Images are resized and their colours measured. AI reads the words inside the image and where they are.</li>
+    <li><b>Code checks.</b> Glossary terms, banned phrases, required disclaimers, all-caps and hype emoji, readability, link text, inclusive language, image colours against the palette (CIEDE2000 distance) and text contrast (WCAG formula).</li>
+    <li><b>AI checks.</b> The AI finds claims and says which ledger fact each one is about, and reviews tone against the tone rules and their examples. It must quote the draft exactly and answer in strict JSON.</li>
+    <li><b>Verify.</b> Code throws away any AI finding whose quote isn't really in the draft or whose rule doesn't exist. <b>Code, not AI, decides claim verdicts</b> by comparing numbers and expiry dates with the Claim Ledger. AI rewrites are shown only if they keep locked phrases, use only ledger numbers and make no prohibited promises.</li>
+    <li><b>Explain.</b> Every finding shows its rule, source, method (code or AI), confidence and a fix. Nothing changes until a person accepts it.</li>
+    <li><b>Route.</b> Drafts with claims, rejected serious findings, open major findings or AI uncertainty go to a reviewer. Everything else is cleared automatically, and that is logged too.</li>
+  </ol>
+</section>
+
+<section class="card" id="ai">
+  <h2>AI disclosure</h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Service</th><th>What it does here</th><th>What it receives</th></tr></thead>
+    <tbody>
+      <tr><td><b>{{ ai_label }}</b></td><td>Finds claims, reviews tone against the tone rules, reads text in images and suggests alt text.</td>
+        <td>The draft text (up to 6,000 characters), the goal and locked phrases, the tone rules, the Claim Ledger facts, and uploaded images. Not your name, comments or other drafts.</td></tr>
+      <tr><td><b>No other services</b></td><td>Everything else runs as code on our own server.</td><td>-</td></tr>
+    </tbody>
+  </table></div>
+  <ul class="tight small">
+    <li>The AI never publishes, approves or changes content. Every fix needs a person to accept it.</li>
+    <li>Each finding is labelled <b>Code check</b>, <b>AI, verified by code</b> or <b>AI-assessed</b>, with its confidence.</li>
+    <li>AI answers are cached by a hash of the input, so the same draft gives the same report and the free quota lasts longer.</li>
+    <li>If the AI is down or not configured, Brandproof still runs every code check and says clearly what was skipped.</li>
+  </ul>
+  <p class="small muted">AI calls so far: {{ calls.n or 0 }} · succeeded: {{ calls.ok or 0 }} · served from cache: {{ calls.cached or 0 }}{% if calls.ms %} · average {{ (calls.ms / 1000) | round(1) }} s{% endif %}</p>
+  {% if recent_errors %}<details class="small"><summary>Recent AI errors ({{ recent_errors | length }})</summary><ul>{% for e in recent_errors %}<li>{{ e.created_at | when }} · {{ e.purpose }}: {{ e.error }}</li>{% endfor %}</ul></details>{% endif %}
+</section>
+
+{% if accuracy %}
+<section class="card" id="accuracy">
+  <h2>Accuracy on our test set</h2>
+  <p class="small muted">{{ accuracy.description }} Run on {{ accuracy.run_at }} with {{ accuracy.ai }}.</p>
+  <div class="scores scores-sm">
+    <div class="score good"><span class="score-label">Findings that were correct</span><span class="score-val">{{ accuracy.precision_pct }}%</span><span class="score-sub">precision</span></div>
+    <div class="score good"><span class="score-label">Planted errors caught</span><span class="score-val">{{ accuracy.recall_pct }}%</span><span class="score-sub">recall</span></div>
+    <div class="score"><span class="score-label">Drafts</span><span class="score-val">{{ accuracy.drafts }}</span><span class="score-sub">{{ accuracy.expected }} planted errors</span></div>
+  </div>
+  {% if accuracy.by_dimension %}
+  <div class="table-wrap"><table class="table small"><thead><tr><th>Dimension</th><th>Precision</th><th>Recall</th><th>Planted</th></tr></thead>
+    <tbody>{% for d, v in accuracy.by_dimension.items() %}<tr><td>{{ DIMENSION_LABELS.get(d, d) }}</td><td>{{ v.precision_pct }}%</td><td>{{ v.recall_pct }}%</td><td>{{ v.expected }}</td></tr>{% endfor %}</tbody></table></div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="card" id="data">
+  <h2>Data and privacy</h2>
+  <ul class="tight">
+    <li><b>Demo data only.</b> Paisaleaf, its rules, facts and sample drafts are fictional. Please don't upload confidential material to this demo.</li>
+    <li><b>Minimum data to the AI.</b> Only the draft being checked and the relevant rules and facts are sent, never the whole Brand Kit or other drafts.</li>
+    <li><b>Storage.</b> Drafts, versions, decisions, comments and the audit log are stored in {{ 'PostgreSQL' if storage == 'postgres' else 'SQLite' }} on our server. Images are re-encoded (which strips camera metadata) before they are stored.</li>
+    <li><b>Roles.</b> This demo has no sign-in so judges can try every role. Each action is still recorded against the role that did it.</li>
+    <li><b>Coming in Round 3:</b> personal data (emails, phone numbers) and confidential terms removed before any AI call, and serious AI findings double-checked.</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>About this project</h2>
+  <p>Built by <b>Team dibbankur</b> (Dibbankur Dey, Arnab Roy Acharjee, Hrituraj Deb, Sanarjit Das) for Round 2 of the TechCircuit Hackathon 2026, problem statement: <i>Intelligent brand-governance platform</i>. AI coding assistance was used during development and is disclosed in the repository README.</p>
+</section>
+{% endblock %}

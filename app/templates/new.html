@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}New draft{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="back" href="/">← Drafts</a>
+  <h1>New draft</h1>
+  <p class="lead">Paste text, upload a Word document or an image (or text and an image together, like a social post). Brandproof checks it in about 10–20 seconds.</p>
+</div>
+{% if role == 'reviewer' %}
+<div class="flash error">Reviewers don't create drafts. Switch to <b>Priya (Creator)</b> at the top right.</div>
+{% endif %}
+<form class="card form" method="post" action="/drafts" enctype="multipart/form-data" data-busy="Checking your draft… (about 10–20 seconds)">
+  <div class="grid-2">
+    <label>Title
+      <input name="title" required maxlength="140" placeholder="e.g. Instagram: Diwali savings post">
+    </label>
+    <label>Channel
+      <select name="channel">{% for c in channels %}<option>{{ c }}</option>{% endfor %}</select>
+    </label>
+  </div>
+  <label>What is this piece for? <span class="hint">One line. Suggested fixes keep this goal.</span>
+    <input name="goal" maxlength="300" placeholder="e.g. Get sign-ups by highlighting returns, for first-time savers">
+  </label>
+  <label>Locked phrases <span class="hint">Words that must not change, separated by commas. Fixes never remove them.</span>
+    <input name="locked" maxlength="300" placeholder="e.g. Paisaleaf Save, Save a little, every day">
+  </label>
+  <fieldset>
+    <legend>Content</legend>
+    <label>Text
+      <textarea name="body" rows="7" maxlength="8000" placeholder="Paste the caption, email or article text here"></textarea>
+    </label>
+    <div class="grid-2">
+      <label>…or a Word document (.docx) <span class="hint">Replaces the text box.</span>
+        <input type="file" name="docx" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      </label>
+      <label>Image (PNG, JPG or WebP) <span class="hint">Banners and social graphics, up to 6 MB.</span>
+        <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
+      </label>
+    </div>
+    <label>Alt text for the image <span class="hint">Leave empty to see Brandproof suggest one.</span>
+      <input name="alt" maxlength="500" placeholder="Describe the image and any text in it">
+    </label>
+  </fieldset>
+  <div class="form-foot">
+    <button class="btn btn-primary btn-big" type="submit" {% if role == 'reviewer' %}disabled{% endif %}>Check draft</button>
+    <span class="small muted">Sample files to try: <a href="/static/samples/paisaleaf-newsletter.docx" download>newsletter.docx</a> ·
+      <a href="/static/samples/paisaleaf-banner.png" download>banner.png</a> ·
+      <a href="/static/samples/paisaleaf-banner-fixed.png" download>banner-fixed.png</a></span>
+  </div>
+</form>
+{% endblock %}
