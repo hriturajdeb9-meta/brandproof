@@ -1,0 +1,16 @@
+# Render blueprint: New + > Blueprint > pick this repo. Fill in GEMINI_API_KEY when asked.
+services:
+  - type: web
+    name: brandproof
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips="*"
+    healthCheckPath: /healthz
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.13.5
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest

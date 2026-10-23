@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/*.db-*
+data/eval-cache.db*
+.venv/
+venv/
+.DS_Store
+app/static/samples/
