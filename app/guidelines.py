@@ -132,7 +132,10 @@ def find_palette(pages: list[str]) -> list[dict]:
             name = re.split(r"[\n:|•·(,;]", before)[-1].strip(" -–—:") or before.strip().split("\n")[-1]
             name = re.sub(r"\b(hex|colour|color|code|rgb)\b", "", name, flags=re.I).strip(" -–—:")
             name = " ".join(name.split()[-3:]) or f"Colour {len(out) + 1}"
-            line = page[max(0, m.start() - 60):m.end() + 20].replace("\n", " ").strip()
+            ls, le = page.rfind("\n", 0, m.start()) + 1, page.find("\n", m.end())
+            line = page[ls: le if le != -1 else len(page)].strip()
+            if len(line) < 12:  # a table cell on its own line: add the line before it
+                line = (page[page.rfind("\n", 0, max(0, ls - 1)) + 1: ls].strip() + " " + line).strip()
             out.append({"kind": "palette", "data": {"name": name[:40], "hex": hx}, "page": i, "quote": line[:160]})
     return out[:24]
 
