@@ -45,9 +45,9 @@ class AIGateway:
                 provider = "none"
         self.provider = provider
         if provider == "gemini":
-            self.model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+            self.model = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
             # tried in order when a model is busy (HTTP 429/5xx), missing (404) or too slow
-            fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash-lite,gemini-flash-latest")
+            fallbacks = os.environ.get("GEMINI_FALLBACK_MODELS", "gemini-3.5-flash-lite,gemini-flash-lite-latest,gemini-flash-latest")
             self.models = [self.model] + [m.strip() for m in fallbacks.split(",") if m.strip() and m.strip() != self.model]
         elif provider == "openai":
             self.model = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
@@ -184,7 +184,8 @@ class AIGateway:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(image).decode()}})
         config = {"temperature": 0, "responseMimeType": "application/json"}
         if model.startswith("gemini-2.5-flash"):
-            config["thinkingConfig"] = {"thinkingBudget": 0}  # these checks need speed, not long reasoning
+            # these checks need speed, not long reasoning; newer models reject thinkingBudget 0 (HTTP 400)
+            config["thinkingConfig"] = {"thinkingBudget": 0}
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": parts}],

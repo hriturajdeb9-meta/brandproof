@@ -189,6 +189,10 @@ class Database:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self.kind = "sqlite"
 
+    def close(self) -> None:
+        with self.lock:
+            self._conn.close()
+
     def _sql(self, sql: str) -> str:
         if self.kind == "postgres":
             return sql.replace("?", "%s")
