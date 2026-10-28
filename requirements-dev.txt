@@ -1,0 +1,3 @@
+# Only for running the tests (starlette.testclient needs httpx2)
+-r requirements.txt
+httpx2==2.13.1

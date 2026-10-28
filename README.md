@@ -81,7 +81,8 @@ uvicorn app.main:app --reload
 ## Tests and accuracy
 
 ```bash
-python -m unittest discover -s tests -v       # 23 unit + HTTP workflow tests (no AI key needed)
+pip install -r requirements-dev.txt           # adds httpx2, which the HTTP tests need
+python -m unittest discover -s tests -v       # 44 unit + HTTP workflow tests (no AI key needed)
 python tests/e2e_flow.py http://localhost:8000 # full browser click-through (needs Playwright)
 python scripts/eval.py                         # accuracy on 30 labelled drafts → data/eval_results.json
 ```
