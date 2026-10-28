@@ -4,7 +4,7 @@
 
 Built by **Team dibbankur** for Round 2 of the TechCircuit Hackathon 2026 (problem statement: *Intelligent brand-governance platform*). The demo brand, **Paisaleaf**, is a fictional savings app.
 
-- **Live demo:** _add your Render link here_
+- **Live demo:** <https://brandproof-lrfg.onrender.com> (free server: the first visit after a quiet spell can take about a minute)
 - **No sign-in needed:** switch between Priya (Creator), Meera (Reviewer) and Arjun (Brand manager) at the top right.
 - **Fastest tour:** click **Check the sample Instagram post** on the home page.
 
