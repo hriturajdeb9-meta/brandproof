@@ -1,15 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Drafts{% endblock %}
 {% block content %}
+{% if is_demo %}
 <section class="hero">
   <div class="hero-text">
     <h1>Check content before it's published.</h1>
     <p class="lead">Brandproof checks a draft against Paisaleaf's brand rules and approved facts, explains every problem with its source, suggests a fix and sends only risky drafts to a reviewer.</p>
     <ol class="steps">
-      <li><b>Check a draft.</b> Try the sample post below, or paste your own.</li>
+      <li><b>Check a draft.</b> Try the sample post, or paste your own. The check runs in the background, so the page never freezes.</li>
       <li><b>Fix it.</b> Accept, edit or reject each finding, then re-check.</li>
-      <li><b>Submit.</b> Drafts with claims go to {{ roles.reviewer.name }} ({{ roles.reviewer.label }}). Switch to that role at the top right to approve.</li>
+      <li><b>Submit.</b> Drafts with claims go to {{ roles.reviewer.name }} ({{ roles.reviewer.label }}). Switch to that person at the top right to approve and download the approval record.</li>
     </ol>
+    <p class="small muted">Also try: <a href="/insights">Insights &amp; Clarity Radar</a> · {% if role == 'brand' %}<a href="/guidelines">Import a guideline</a>{% else %}Import a guideline (as {{ roles.brand.name }}){% endif %} · <a href="/about">How it works</a></p>
   </div>
   <div class="hero-cta card">
     <h2>Try it in 30 seconds</h2>
@@ -17,17 +19,34 @@
       <p class="muted small">You are {{ persona.name }}, a reviewer. Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right to create drafts, or open the review queue.</p>
       <a class="btn" href="/review">Open the review queue</a>
     {% else %}
-      <form method="post" action="/samples/instagram" data-busy="Checking the sample… (about 10–20 seconds)">
+      <form method="post" action="/samples/instagram" data-once>
         <button class="btn btn-primary btn-big" type="submit">Check the sample Instagram post</button>
       </form>
       <p class="small muted">A banner and caption with a few deliberate mistakes: a guaranteed-return promise, a wrong rate, an off-brand colour and more.</p>
       <div class="cta-row">
-        <form method="post" action="/samples/email" data-busy="Checking…"><button class="btn" type="submit">Check a clean sample email</button></form>
+        <form method="post" action="/samples/email" data-once><button class="btn" type="submit">Check a clean sample email</button></form>
         <a class="btn" href="/drafts/new">New draft</a>
       </div>
     {% endif %}
   </div>
 </section>
+{% else %}
+<div class="page-head">
+  <h1>{{ c.ws_name }}</h1>
+  <p class="lead">Every draft is checked against this workspace's Brand Kit before it is published.</p>
+</div>
+{% if role == 'brand' and not drafts %}
+<section class="card getting-started">
+  <h2>Get started</h2>
+  <ol class="steps">
+    <li><a href="/guidelines"><b>Import your brand guideline</b></a> (PDF or Word). Brandproof drafts rules from it; you approve them.</li>
+    <li>Add your approved facts and their expiry dates to the <a href="/kit?tab=facts">Claim Ledger</a>, and your <a href="/kit?tab=palette">colours</a>.</li>
+    <li><a href="/team">Add your team</a> as creators and reviewers.</li>
+    <li><a href="/drafts/new">Check your first draft</a>.</li>
+  </ol>
+</section>
+{% endif %}
+{% endif %}
 
 <section class="card">
   <div class="card-head">
@@ -46,10 +65,14 @@
         <td><span class="status st-{{ d.status }}">{{ STATUS[d.status][0] }}</span></td>
         <td>v{{ d.current_version }}</td>
         <td>
+          {% if d.state == 'checking' %}<span class="tag">checking…</span>
+          {% elif d.state == 'failed' %}<span class="tag sev-major">check failed</span>
+          {% else %}
           {% if d.counts.get('blocker') %}<span class="tag sev-blocker">{{ d.counts.get('blocker') }} blocker</span>{% endif %}
           {% if d.counts.get('major') %}<span class="tag sev-major">{{ d.counts.get('major') }} major</span>{% endif %}
           {% if d.counts.get('minor') %}<span class="tag sev-minor">{{ d.counts.get('minor') }} minor</span>{% endif %}
           {% if not d.issues %}<span class="tag ok">None</span>{% endif %}
+          {% endif %}
         </td>
         <td class="small muted">{{ d.updated_at | when }}</td>
       </tr>
@@ -58,7 +81,7 @@
   </table>
   </div>
   {% else %}
-  <p class="empty">No drafts yet. Start with the sample post above.</p>
+  <p class="empty">No drafts yet.{% if role != 'reviewer' %} <a href="/drafts/new">Check your first draft</a>.{% endif %}</p>
   {% endif %}
 </section>
 {% endblock %}

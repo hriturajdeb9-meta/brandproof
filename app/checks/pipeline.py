@@ -6,19 +6,21 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ..ai import AIGateway
 from ..kit import DIMENSIONS, SEVERITIES, Kit
-from .ai_checks import ai_claims, ai_read_image, ai_tone
+from ..redact import Redactor
+from .ai_checks import ai_claims, ai_read_image, ai_tone, second_opinion
 from .claims import claim_findings
 from .code_checks import (check_alt_text, check_caps_and_emoji, check_pattern_rules, check_readability,
-                          check_required_text, check_terminology)
+                          check_required_text, check_sensitive, check_terminology)
 from .image import check_palette, check_text_contrast, looks_like_photo, open_rgb
 
 PENALTY = {"blocker": 40, "major": 20, "minor": 5, "info": 0, "ok": 0}
 
 
 def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | None, image_mime: str | None,
-               alt: str) -> dict:
+               alt: str, pages: list[list[int]] | None = None) -> dict:
     t0 = time.time()
     body = body or ""
+    red = Redactor(body, kit.confidential)  # personal data and confidential terms never reach the AI
     has_text = bool(body.strip())
     findings: list[dict] = []
     ai_calls: list[dict] = []
@@ -27,7 +29,7 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
     use_ai = ai.enabled
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        fut_claims = pool.submit(ai_claims, ai, kit, body, meta) if (has_text and use_ai) else None
+        fut_claims = pool.submit(ai_claims, ai, kit, body, meta, red) if (has_text and use_ai) else None
         fut_image = pool.submit(ai_read_image, ai, image, image_mime or "image/png") if (image and use_ai) else None
 
         # ---- code checks on the text
@@ -38,8 +40,9 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
             code += check_required_text(kit, body)
             code += check_caps_and_emoji(kit, body)
             code += check_readability(kit, body)
+            code += check_sensitive(kit, body)
         findings += code
-        fut_tone = pool.submit(ai_tone, ai, kit, body, meta, code) if (has_text and use_ai) else None
+        fut_tone = pool.submit(ai_tone, ai, kit, body, meta, code, red) if (has_text and use_ai) else None
 
         # ---- claims: AI finds them (if available), code decides the verdict
         if has_text:
@@ -57,7 +60,11 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
         # ---- tone (AI)
         if fut_tone:
             tone, tinfo = fut_tone.result()
-            ai_calls.append({k: tinfo.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error", "ms")})
+            ai_calls.append({k: tinfo.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error", "ms",
+                                                        "fallback", "attempts")})
+            if tinfo.get("rules_selected"):
+                notes.append(f"The Brand Kit is large, so the {tinfo.get('rules_sent')} rules most relevant to this "
+                             "draft were sent to the AI (keyword retrieval).")
             findings += tone
             stats["ai_proposed"] += tinfo.get("ai_proposed", 0)
             stats["ai_discarded"] += tinfo.get("ai_discarded", 0)
@@ -85,6 +92,7 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
                 image_info["contrast"] = measured
                 image_text = " ".join(l["text"] for l in read["lines"])
                 if image_text.strip():
+                    findings += check_sensitive(kit, image_text, target="image")
                     icf, _ = claim_findings(kit, image_text, None, meta.get("locked") or [], target="image",
                                             line_boxes=read["lines"])
                     findings += [f for f in icf if f["verdict"] != "supported"]
@@ -95,13 +103,28 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
             if read and read.get("alt_text") and (alt or "").strip():
                 image_info["ai_alt"] = read["alt_text"]
 
+    # second opinion: an independent model re-judges serious findings that depended on the AI
+    second = {"skipped": "AI off"}
+    if use_ai and has_text:
+        second = second_opinion(ai, kit, body, findings, red)
+        if second.get("provider"):
+            ai_calls.append({k: second.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error", "ms")})
+        if second.get("disagreed") or second.get("unsure"):
+            notes.append(f"Second opinion: {second.get('disagreed', 0) + second.get('unsure', 0)} serious AI finding(s) "
+                         "were not confirmed by a second model, so they are marked for human judgment.")
     stats["needs_human"] += sum(1 for f in findings if f.get("needs_human") and f["method"] != "ai")
+    if pages:
+        for f in findings:
+            if f.get("start") is not None:
+                f["page"] = next((i + 1 for i, (a, b) in enumerate(pages) if a <= f["start"] < b + 2), None)
     findings = _order(findings)
     summary = _summary(findings, has_text, bool(image))
     summary.update({
         "ai": {"enabled": use_ai, "label": ai.label, "calls": ai_calls},
         "stats": stats,
         "notes": notes,
+        "masked": red.summary(),
+        "second_opinion": second,
         "image": image_info,
         "ms": int((time.time() - t0) * 1000),
         "kit_hash": kit.hash,

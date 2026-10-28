@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ {'signin': 'Sign in', 'signup': 'Create a workspace', 'forgot': 'Reset password', 'reset': 'New password'}[mode] }}{% endblock %}
+{% block content %}
+<div class="auth-grid">
+  <section class="card auth-card">
+    {% if mode == 'signin' %}
+      <h1>Sign in</h1>
+      <p class="muted">Use the account you created for your workspace.</p>
+      <form class="form" method="post" action="/signin" data-once>
+        <label>Email<input type="email" name="email" required autocomplete="email" value="{{ email }}" maxlength="254"></label>
+        <label>Password<input type="password" name="password" required autocomplete="current-password" maxlength="200"></label>
+        <button class="btn btn-primary" type="submit">Sign in</button>
+      </form>
+      <p class="small">New here? <a href="/signup">Create a free workspace</a>{% if supabase %} · <a href="/forgot">Forgot your password?</a>{% endif %}</p>
+    {% elif mode == 'signup' %}
+      <h1>Create your workspace</h1>
+      <p class="muted">For a brand, a small business, a college club or a student team. You become its brand manager and can add creators and reviewers.</p>
+      <form class="form" method="post" action="/signup" data-once>
+        <div class="grid-2">
+          <label>Your name<input name="name" required maxlength="60" autocomplete="name"></label>
+          <label>Email<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
+        </div>
+        <label>Password <span class="hint">at least 8 characters</span><input type="password" name="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>
+        <label>Workspace name <span class="hint">usually your brand or team</span><input name="workspace" required maxlength="60" placeholder="e.g. Campus Coffee Club"></label>
+        <fieldset>
+          <legend>Start with</legend>
+          {% for key, label in kits.items() %}
+          <label class="check"><input type="radio" name="kit" value="{{ key }}" {% if key == 'starter' %}checked{% endif %}> {{ label }}</label>
+          {% endfor %}
+        </fieldset>
+        <button class="btn btn-primary" type="submit">Create workspace</button>
+        <p class="small muted">{% if supabase %}Accounts are handled by Supabase Auth; you may get an email to confirm your address.{% else %}Your password is stored only as a salted scrypt hash.{% endif %} Please don't upload confidential material while testing.</p>
+      </form>
+      <p class="small">Already have an account? <a href="/signin">Sign in</a></p>
+    {% elif mode == 'forgot' %}
+      <h1>Reset your password</h1>
+      <form class="form" method="post" action="/forgot" data-once>
+        <label>Email<input type="email" name="email" required maxlength="254" autocomplete="email"></label>
+        <button class="btn btn-primary" type="submit">Send reset link</button>
+      </form>
+    {% else %}
+      <h1>Choose a new password</h1>
+      <form class="form" method="post" action="/reset" id="reset-form" data-once>
+        <input type="hidden" name="access_token" id="access_token">
+        <label>New password <span class="hint">at least 8 characters</span><input type="password" name="password" required minlength="8" maxlength="200" autocomplete="new-password"></label>
+        <button class="btn btn-primary" type="submit">Save password</button>
+      </form>
+      <script>
+        // Supabase puts the one-time token in the link's #fragment, which never reaches our server by itself.
+        (function () { var m = /access_token=([^&]+)/.exec(location.hash); if (m) { document.getElementById("access_token").value = decodeURIComponent(m[1]); history.replaceState(null, "", "/reset"); } })();
+      </script>
+    {% endif %}
+  </section>
+  <aside class="card demo-card">
+    <h2>Just looking?</h2>
+    <p>Try the public demo workspace for Paisaleaf, a fictional savings app. No account needed: pick a person and see what they can do.</p>
+    <form method="post" action="/demo/as" class="demo-buttons">
+      <input type="hidden" name="back" value="/">
+      {% for key, p in demo_people.items() %}
+      <button class="btn" type="submit" name="role" value="{{ key }}"><span class="av av-{{ key }}">{{ p.name[0] }}</span> {{ p.name }} · {{ ROLES[key].label }}</button>
+      {% endfor %}
+    </form>
+    <p class="small muted">Everyone shares the demo, so don't put anything private in it.</p>
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Insights{% endblock %}
+{% macro bars(items, label_key, value_key, total, link=none, sub=none) -%}
+{% set top = (items | map(attribute=value_key) | max) if items else 1 %}
+<ul class="hbars">
+{% for it in items %}
+  <li title="{{ it[label_key] }}: {{ it[value_key] }}">
+    <span class="hb-label">{% if link %}<a href="{{ link ~ it.id }}">{{ it.id }}</a> {% endif %}{{ it[label_key] }}{% if sub and it[sub] is defined %} <span class="muted small">· {{ it[sub] }}</span>{% endif %}</span>
+    <span class="hb-track"><span class="hb-fill" style="width: {{ (100 * it[value_key] / top) | round(1) if top else 0 }}%"></span></span>
+    <span class="hb-val">{{ it[value_key] }}</span>
+  </li>
+{% endfor %}
+</ul>
+{%- endmacro %}
+{% block content %}
+<div class="page-head">
+  <h1>Insights</h1>
+  <p class="lead">Where people go wrong, which rules are unclear, and which approved content is about to go out of date.</p>
+  {% if seeded %}<p class="small muted">This demo includes {{ seeded }} sample drafts from the last four months so the charts have data; they were checked by Brandproof's code checks when the demo was created. Your own drafts are added as you go.</p>{% endif %}
+</div>
+
+<form class="filters card" method="get" action="/insights">
+  <label>Period<select name="period">{% for k, l in [('30', 'Last 30 days'), ('90', 'Last 90 days'), ('365', 'Last 12 months'), ('all', 'All time')] %}<option value="{{ k }}" {% if period == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></label>
+  <label>Channel<select name="channel"><option value="">All channels</option>{% for ch in channels %}<option {% if channel == ch %}selected{% endif %}>{{ ch }}</option>{% endfor %}</select></label>
+  <input type="hidden" name="days" value="{{ days }}">
+  <button class="btn btn-small" type="submit">Apply</button>
+</form>
+
+<section class="stat-tiles" aria-label="Summary">
+  <div class="stat"><span class="stat-val">{{ d.drafts }}</span><span class="stat-label">drafts checked</span></div>
+  <div class="stat"><span class="stat-val">{{ d.per_draft }}</span><span class="stat-label">issues per draft, first version</span></div>
+  <div class="stat"><span class="stat-val">{{ d.clean_first_pct if d.clean_first_pct is not none else '—' }}{% if d.clean_first_pct is not none %}%{% endif %}</span><span class="stat-label">first versions with no blocker or major issue</span></div>
+  <div class="stat"><span class="stat-val">{{ d.avg_versions if d.avg_versions is not none else '—' }}</span><span class="stat-label">versions to approval, on average</span></div>
+  <div class="stat"><span class="stat-val">{{ d.overrides }}</span><span class="stat-label">findings rejected with a reason</span></div>
+</section>
+
+{% if not d.drafts %}
+<section class="card"><p class="empty">No checked drafts in this period yet. Insights appear after a few drafts have been checked.</p></section>
+{% else %}
+<div class="split">
+  <section class="card">
+    <h2>Most common mistakes</h2>
+    <p class="small muted">Findings on the first version of each draft (before fixing), by rule.</p>
+    {{ bars(d.by_rule, 'title', 'n', d.issues, '/kit/rules/') }}
+  </section>
+  <section class="card">
+    <h2>By dimension</h2>
+    {{ bars(d.by_dim, 'label', 'n', d.issues) }}
+    <h2 class="mt">By channel</h2>
+    <p class="small muted">Issues per draft in brackets.</p>
+    <ul class="hbars">{% set top = d.by_channel | map(attribute='per') | max %}{% for it in d.by_channel %}<li title="{{ it.label }}: {{ it.per }} issues per draft ({{ it.drafts }} drafts)"><span class="hb-label">{{ it.label }} <span class="muted small">· {{ it.drafts }} draft{{ 's' if it.drafts != 1 }}</span></span><span class="hb-track"><span class="hb-fill" style="width: {{ (100 * it.per / top) | round(1) if top else 0 }}%"></span></span><span class="hb-val">{{ it.per }}</span></li>{% endfor %}</ul>
+  </section>
+</div>
+<div class="split">
+  <section class="card">
+    <h2>Issues per draft, by week</h2>
+    <p class="small muted">First versions only. Lower is better.</p>
+    {% set wtop = d.weeks | map(attribute='per_draft') | reject('none') | max if d.weeks | map(attribute='per_draft') | reject('none') | list else 1 %}
+    <div class="vbars" role="img" aria-label="Issues per draft by week">
+      {% for w in d.weeks %}
+      <div class="vb" title="Week of {{ w.label }}: {{ w.drafts }} draft(s), {{ w.issues }} issue(s){% if w.per_draft is not none %}, {{ w.per_draft }} per draft{% endif %}">
+        <span class="vb-val">{{ w.per_draft if w.per_draft is not none else '' }}</span>
+        <span class="vb-bar" style="height: {{ (100 * (w.per_draft or 0) / wtop) | round(1) if wtop else 0 }}%"></span>
+        <span class="vb-label">{{ w.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <details class="small"><summary>Show as a table</summary>
+      <table class="table small"><thead><tr><th>Week of</th><th>Drafts</th><th>Issues</th><th>Per draft</th><th>Blockers</th></tr></thead>
+      <tbody>{% for w in d.weeks %}<tr><td>{{ w.label }}</td><td>{{ w.drafts }}</td><td>{{ w.issues }}</td><td>{{ w.per_draft if w.per_draft is not none else '—' }}</td><td>{{ w.blocker }}</td></tr>{% endfor %}</tbody></table>
+    </details>
+  </section>
+  <section class="card">
+    <h2>By creator</h2>
+    <p class="small muted">Issues per draft. Use it to plan training, not to blame: new people and agencies learn the rules over time.</p>
+    <ul class="hbars">{% set top = d.by_creator | map(attribute='per') | max %}{% for it in d.by_creator %}<li title="{{ it.label }}: {{ it.per }} issues per draft"><span class="hb-label">{{ it.label }} <span class="muted small">· {{ it.drafts }} draft{{ 's' if it.drafts != 1 }}</span></span><span class="hb-track"><span class="hb-fill" style="width: {{ (100 * it.per / top) | round(1) if top else 0 }}%"></span></span><span class="hb-val">{{ it.per }}</span></li>{% endfor %}</ul>
+  </section>
+</div>
+{% endif %}
+
+<section class="card" id="radar">
+  <h2>Guideline Clarity Radar</h2>
+  <p class="small">Rules that people often reject, rewrite, or that the AI is unsure about are probably unclear or too broad. Fix the rule once instead of arguing about it in every draft.</p>
+  {% if radar %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Rule</th><th>Unclear score</th><th>Why</th><th>What people said</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for r in radar %}
+      <tr><td><a href="/kit/rules/{{ r.rule.id }}"><b>{{ r.rule.id }}</b></a> {{ r.rule.title }}<div class="small muted">v{{ r.rule.version or 1 }} · found {{ r.stats.fired }}×</div></td>
+        <td><span class="score-pill {% if r.score >= 50 %}hi{% elif r.score >= 25 %}mid{% endif %}">{{ r.score }}</span></td>
+        <td class="small">{{ r.why }}</td>
+        <td class="small">{% for q in r.stats.reasons[:2] %}<div>“{{ q }}”</div>{% else %}<span class="muted">—</span>{% endfor %}</td>
+        {% if role == 'brand' %}<td>{% if ai_on %}<form method="post" action="/kit/rules/{{ r.rule.id }}/clarify" data-once><button class="btn btn-small" type="submit">Suggest clearer wording</button></form>{% else %}<a class="btn btn-small" href="/kit?tab=rules&edit={{ r.rule.id }}#form">Edit rule</a>{% endif %}</td>{% endif %}</tr>
+    {% endfor %}</tbody>
+  </table></div>
+  <p class="small muted">Score = (rejections + 0.6 × AI unsure + 0.6 × second-opinion disagreements + 0.4 × edited fixes) ÷ times found. Rules found fewer than 3 times are not ranked.</p>
+  {% else %}<p class="empty">No unclear rules yet: nothing has been rejected or doubted often enough.</p>{% endif %}
+
+  {% for p in pending %}{% set s = p.data_obj %}
+  <article class="card reword" id="reword-{{ p.id }}">
+    <h3>Suggested clearer wording for {{ p.result_id }}</h3>
+    <p class="small muted">Drafted by {{ s.model }}. {{ s.change_note }}</p>
+    {% if role == 'brand' %}
+    <form class="form" method="post" action="/insights/reword/{{ p.id }}" data-once>
+      <label>Title<input name="title" value="{{ s.title }}" maxlength="200"></label>
+      <label>Description<textarea name="description" rows="3" maxlength="1000">{{ s.description }}</textarea></label>
+      <div class="grid-2"><label>Do example<input name="do_example" value="{{ s.do_example }}"></label><label>Don't example<input name="dont_example" value="{{ s.dont_example }}"></label></div>
+      <div class="row-actions">
+        <button class="btn btn-primary btn-small" type="submit" name="decision" value="approve">Approve as a new rule version</button>
+        <button class="btn btn-small" type="submit" name="decision" value="discard">Discard</button>
+      </div>
+    </form>
+    {% else %}<p>{{ s.description }}</p>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+
+<section class="card" id="expiry">
+  <div class="card-head"><h2>Expiry watch</h2>
+    <form method="get" action="/insights#expiry" class="inline-form"><input type="hidden" name="period" value="{{ period }}"><input type="hidden" name="channel" value="{{ channel }}">
+      <label class="check">Facts expiring within <select name="days" onchange="this.form.submit()">{% for n in [30, 60, 90, 180] %}<option {% if days == n %}selected{% endif %}>{{ n }}</option>{% endfor %}</select> days</label>
+      <noscript><button class="btn btn-small" type="submit">Go</button></noscript></form></div>
+  <p class="small">Approved content whose claims rely on a Claim Ledger fact that expires soon or already has. Update it before it becomes wrong.</p>
+  {% if expiry %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Approved content</th><th>Claim</th><th>Fact</th><th>Expires</th><th></th></tr></thead>
+    <tbody>{% for x in expiry %}
+      <tr><td><a href="/drafts/{{ x.draft.id }}"><b>{{ x.draft.title }}</b></a><div class="small muted">{{ x.draft.channel }}</div></td>
+        <td class="small">“{{ x.quote }}”</td>
+        <td class="small"><b>{{ x.fact.id }}</b> {{ x.fact.statement }}{% if x.newer %}<div class="ok-text">Newer fact: {{ x.newer.id }} “{{ x.newer.approved_wording or x.newer.statement }}”</div>{% endif %}</td>
+        <td>{% if x.days_left < 0 %}<span class="tag sev-blocker">expired {{ -x.days_left }} days ago</span>{% elif x.days_left <= 30 %}<span class="tag sev-major">in {{ x.days_left }} days</span>{% else %}<span class="tag sev-minor">in {{ x.days_left }} days</span>{% endif %}<div class="small muted">{{ x.fact.valid_until }}</div></td>
+        <td>{% if role in ('creator', 'brand') %}<form method="post" action="/drafts/{{ x.draft.id }}/reopen" data-once><input type="hidden" name="fact" value="{{ x.fact.id }}"><button class="btn btn-small" type="submit">Reopen &amp; re-check</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="empty">No approved content relies on a fact that expires in the next {{ days }} days.</p>{% endif %}
+</section>
+{% endblock %}

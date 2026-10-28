@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Workspaces{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Workspaces</h1>
+  <p class="lead">Each workspace has its own Brand Kit, drafts, team and audit log. Nobody outside a workspace can see inside it{% if rls %}, and the database itself enforces that{% endif %}.</p>
+</div>
+{% if c.memberships %}
+<section class="card">
+  <h2>Your workspaces</h2>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Workspace</th><th>Your role</th><th></th></tr></thead>
+    <tbody>{% for m in c.memberships %}
+      <tr><td><b>{{ m.name }}</b>{% if m.is_demo %} <span class="tag">public demo</span>{% endif %}</td><td>{{ ROLES[m.role].label }}{% if m.title %} <span class="muted small">· {{ m.title }}</span>{% endif %}</td>
+        <td>{% if m.workspace_id == c.ws %}<span class="tag ok">current</span>{% else %}<form method="post" action="/workspaces/switch"><input type="hidden" name="workspace" value="{{ m.workspace_id }}"><button class="btn btn-small" type="submit">Open</button></form>{% endif %}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+<section class="card">
+  <h2>Create a workspace</h2>
+  {% if signed_in %}
+  <form class="form" method="post" action="/workspaces" data-once>
+    <label>Name<input name="name" required maxlength="60" placeholder="e.g. Campus Coffee Club"></label>
+    <fieldset><legend>Start with</legend>
+      {% for key, label in kits.items() %}<label class="check"><input type="radio" name="kit" value="{{ key }}" {% if key == 'starter' %}checked{% endif %}> {{ label }}</label>{% endfor %}
+    </fieldset>
+    <button class="btn btn-primary" type="submit">Create</button>
+  </form>
+  {% else %}
+  <p>You're exploring the public demo as {{ c.name }}. <a class="btn btn-primary btn-small" href="/signup">Create a free account</a> to get your own workspace, or <a href="/signin">sign in</a>.</p>
+  {% endif %}
+</section>
+{% endblock %}

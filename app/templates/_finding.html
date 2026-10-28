@@ -9,13 +9,14 @@
     <span class="tag m-{{ f.method | replace('+', '') }}" title="How this was found">{{ f.method_label }}</span>
     {% if f.needs_human %}<span class="tag human">Needs human judgment</span>{% endif %}
     {% if f.target == 'image' %}<span class="tag where">In the image</span>{% elif f.target == 'alt' %}<span class="tag where">Alt text</span>{% endif %}
+    {% if f.page %}<span class="tag where">Page {{ f.page }}</span>{% endif %}
   </div>
   <h3>{{ f.title }}</h3>
   {% if f.quote and f.target != 'draft' %}<blockquote>“{{ f.quote }}”</blockquote>{% endif %}
   <p class="why">{{ f.message }}</p>
   <dl class="fc-meta">
     <dt>Rule</dt>
-    <dd><a href="/kit?tab=rules#r-{{ f.rule_id }}"><b>{{ f.rule_id }}</b></a> {{ f.rule_title }}{% if f.source %} <span class="muted">· {{ f.source }}</span>{% endif %}</dd>
+    <dd><a href="/kit/rules/{{ f.rule_id }}"><b>{{ f.rule_id }}</b></a> {{ f.rule_title }}{% if f.source %} <span class="muted">· {{ f.source }}</span>{% endif %}</dd>
     {% for e in f.evidence %}
       {% if e.id %}
       <dt>Ledger</dt>
@@ -37,6 +38,7 @@
       </dd>
     {% endif %}
     {% if f.method != 'code' %}<dt>Confidence</dt><dd>{{ f.confidence | capitalize }}</dd>{% endif %}
+    {% if f.second_opinion %}<dt>2nd opinion</dt><dd>{% if f.second_opinion.agree %}✓ Agreed{% elif f.second_opinion.agree is sameas false %}✕ Disagreed{% else %}? Unsure{% endif %}{% if f.second_opinion.reason %}: {{ f.second_opinion.reason }}{% endif %} <span class="muted">· {{ f.second_opinion.model }}</span></dd>{% endif %}
   </dl>
   {% if d %}
     <div class="decision d-{{ d.action }}">
@@ -48,7 +50,7 @@
     </div>
   {% elif can_edit %}
     <div class="fc-actions">
-      <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}">
+      <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" data-once>
         <input type="hidden" name="action" value="accept">
         <button class="btn btn-small btn-primary" type="submit">{% if f.fix and f.fix.type in ('replace', 'remove', 'append', 'alt') %}Accept fix{% else %}Will fix{% endif %}</button>
       </form>

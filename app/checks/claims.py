@@ -269,11 +269,14 @@ def claim_findings(kit: Kit, text: str, ai_claims: list[dict] | None, locked: li
         method = c["method"]
         if ai_says_inconsistent and verdict == "contradicted" and not numbers(c["quote"]):
             method = "ai"  # meaning judged by the model, not by number comparison
-        findings.append(make_finding(
+        f = make_finding(
             kit, res["rule_id"], title=titles[verdict], message=res["message"], quote=c["quote"], target=target,
             span=(c["start"], c["end"]) if target == "text" else None, box=box, method=method,
             severity=severity, fix=fix, evidence=res["evidence"], verdict=verdict, fix_note=note,
-        ))
+        )
+        # the verdict leaned on the AI (which fact the claim is about, or its meaning), not only on code
+        f["ai_dependent"] = c["method"] != "code" and verdict in ("contradicted", "outdated", "unsupported")
+        findings.append(f)
     return findings, stats
 
 

@@ -31,7 +31,8 @@ class WorkflowTests(unittest.TestCase):
         warnings.simplefilter("ignore", ResourceWarning)
         cls.tmp = tempfile.mkdtemp()
         cls.port = free_port()
-        env = dict(os.environ, SQLITE_PATH=os.path.join(cls.tmp, "t.db"), AI_PROVIDER="none", DATABASE_URL="")
+        env = dict(os.environ, SQLITE_PATH=os.path.join(cls.tmp, "t.db"), AI_PROVIDER="none", DATABASE_URL="",
+                   SUPABASE_URL="", SUPABASE_ANON_KEY="")
         cls.proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", str(cls.port)],
                                     cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         cls.base = f"http://127.0.0.1:{cls.port}"
@@ -49,18 +50,29 @@ class WorkflowTests(unittest.TestCase):
 
     def session(self, role):
         s = requests.Session()
-        s.cookies.set("bp_role", role)
+        s.post(self.base + "/demo/as", data={"role": role})
         return s
+
+    def done(self, s, r):
+        """Checks run in the background: follow the draft page until the result is there."""
+        url = re.sub(r"[?#].*$", "", r.url)
+        for _ in range(100):
+            page = s.get(url)
+            if "Checking version" not in page.text:
+                return page
+            time.sleep(0.15)
+        self.fail("check did not finish")
 
     def test_pages_load(self):
         for path in ["/", "/drafts/new", "/kit", "/kit?tab=facts", "/kit?tab=glossary", "/kit?tab=palette",
-                     "/review", "/audit", "/about", "/healthz", "/kit/rules.csv"]:
+                     "/kit?tab=confidential", "/review", "/audit", "/about", "/healthz", "/kit/rules.csv", "/insights",
+                     "/team", "/signin", "/signup", "/workspaces", "/kit/rules/R-CLM-01"]:
             self.assertEqual(requests.get(self.base + path).status_code, 200, path)
         self.assertEqual(requests.get(self.base + "/drafts/99999").status_code, 404)
 
     def test_full_workflow(self):
         priya, meera = self.session("creator"), self.session("reviewer")
-        r = priya.post(self.base + "/samples/instagram")
+        r = self.done(priya, priya.post(self.base + "/samples/instagram"))
         self.assertEqual(r.status_code, 200)
         draft_url = re.sub(r"\?.*$", "", r.url)
         self.assertIn("Prohibited claim", r.text)
@@ -76,9 +88,10 @@ class WorkflowTests(unittest.TestCase):
             priya.post(f"{draft_url}/findings/{k}", data={"action": "accept"})
         r = priya.get(draft_url)
         self.assertIn("Your working copy", r.text)
-        r = priya.post(draft_url + "/recheck", data={"alt": "Paisaleaf banner: Earn up to 7.10% p.a. on Paisaleaf Save."},
+        r = priya.post(draft_url + "/recheck", data={"alt": "Paisaleaf banner: Earn up to 7.10% p.a. on Paisaleaf Save.", "base": "1"},
                        files={"image": open(os.path.join(ROOT, "app/static/samples/paisaleaf-banner-fixed.png"), "rb")})
-        self.assertIn("Version 2 checked", requests.utils.unquote(r.url))
+        r = self.done(priya, r)
+        self.assertIn("Draft v2", r.text)
         # submit -> routed to review because the post makes claims
         r = priya.post(draft_url + "/submit")
         self.assertIn("In review", r.text)
@@ -93,16 +106,16 @@ class WorkflowTests(unittest.TestCase):
 
     def test_clean_draft_is_auto_approved(self):
         priya = self.session("creator")
-        r = priya.post(self.base + "/drafts", data={"title": "Dark mode", "channel": "Email", "goal": "", "locked": "",
-                                                    "body": "Hi everyone, the Paisaleaf app now has a dark mode. Open the app to try it."})
+        r = self.done(priya, priya.post(self.base + "/drafts", data={"title": "Dark mode", "channel": "Email", "goal": "", "locked": "",
+                                                    "body": "Hi everyone, the Paisaleaf app now has a dark mode. Open the app to try it."}))
         draft_url = re.sub(r"\?.*$", "", r.url)
         r = priya.post(draft_url + "/submit")
         self.assertIn("Approved automatically", requests.utils.unquote(r.url))
 
     def test_reject_needs_reason_and_routes_to_review(self):
         priya = self.session("creator")
-        r = priya.post(self.base + "/drafts", data={"title": "Rate post", "channel": "Ad", "goal": "", "locked": "",
-                                                    "body": "Earn up to 7.25% p.a. on Paisaleaf Save. *Rates are subject to change. T&Cs apply."})
+        r = self.done(priya, priya.post(self.base + "/drafts", data={"title": "Rate post", "channel": "Ad", "goal": "", "locked": "",
+                                                    "body": "Earn up to 7.25% p.a. on Paisaleaf Save. *Rates are subject to change. T&Cs apply."}))
         draft_url = re.sub(r"\?.*$", "", r.url)
         key = re.findall(r'id="f-([0-9a-f]{10})"', r.text)[0]
         r = priya.post(f"{draft_url}/findings/{key}", data={"action": "reject", "reason": ""})
@@ -122,8 +135,8 @@ class WorkflowTests(unittest.TestCase):
                                                            "description": "Avoid slang like 'lit'.", "severity": "minor",
                                                            "method": "code", "pattern": r"\blit\b", "fix_hint": "remove",
                                                            "active_present": "1", "active": "1"})
-        self.assertIn("Saved", requests.utils.unquote(r.url))
-        r = priya.post(self.base + "/drafts", data={"title": "Slang", "channel": "X / Twitter", "body": "This app is lit."})
+        self.assertIn("Saved as version 1", requests.utils.unquote(r.url))
+        r = self.done(priya, priya.post(self.base + "/drafts", data={"title": "Slang", "channel": "X / Twitter", "body": "This app is lit."}))
         self.assertIn("R-TON-09", r.text)  # a new rule applies to the very next check
         csv_text = requests.get(self.base + "/kit/rules.csv").text
         self.assertIn("R-TON-09", csv_text)
@@ -141,6 +154,8 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("Social media lead", requests.get(self.base + "/").text)
         r = arjun.post(self.base + "/team", data={"reset": "1"})
         self.assertIn("Priya", r.text)
+        self.assertEqual(arjun.get(self.base + "/guidelines").status_code, 200)
+        self.assertEqual(priya.get(self.base + "/guidelines").status_code, 403)
 
 
 if __name__ == "__main__":

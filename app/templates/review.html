@@ -5,7 +5,7 @@
   <h1>Review queue</h1>
   <p class="lead">Only drafts that need a human come here: ones with claims, rejected serious findings or AI uncertainty. Clean drafts are cleared automatically.</p>
 </div>
-{% if role == 'creator' %}<div class="banner info">You are {{ roles.creator.name }} ({{ roles.creator.label }}). Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.</div>{% endif %}
+{% if role == 'creator' and is_demo %}<div class="banner info">You are {{ roles.creator.name }} ({{ roles.creator.label }}). Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.</div>{% endif %}
 <section class="card">
   <h2>Waiting for review ({{ drafts | length }})</h2>
   {% if drafts %}
@@ -17,7 +17,7 @@
       <td><a class="btn btn-small btn-primary" href="/drafts/{{ d.id }}">Review</a></td></tr>
     {% endfor %}</tbody>
   </table></div>
-  {% else %}<p class="empty">Nothing to review right now. Submit a draft as {{ roles.creator.name }} to see it here.</p>{% endif %}
+  {% else %}<p class="empty">Nothing to review right now.{% if is_demo %} Submit a draft as {{ roles.creator.name }} to see it here.{% endif %}</p>{% endif %}
 </section>
 {% if recent %}
 <section class="card">

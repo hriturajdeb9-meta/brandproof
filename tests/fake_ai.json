@@ -1,53 +1,224 @@
 {
-  "claims": [
-    {
-      "when": "Ignore all previous instructions",
-      "answer": {"claims": []}
-    },
-    {
-      "when": "GUARANTEED 12% returns with Paisaleaf Save",
-      "answer": {
-        "claims": [
-          {"quote": "GUARANTEED 12% returns", "kind": "guarantee", "fact_id": "F-03", "rewrite": "Earn up to 9% p.a."},
-          {"quote": "The best savings app in India", "kind": "superlative", "fact_id": "F-12", "rewrite": "Rated 4.6★ on Google Play"},
-          {"quote": "Guaranteed returns forever", "kind": "guarantee", "fact_id": null, "rewrite": ""}
-        ]
-      }
-    },
-    {
-      "when": "",
-      "answer": {"claims": []}
-    }
-  ],
-  "tone": [
-    {
-      "when": "GUARANTEED 12% returns with Paisaleaf Save",
-      "answer": {
-        "issues": [
-          {"rule_id": "R-TON-01", "quote": "Sign-up now!", "problem": "The call to action feels pushy.", "suggestion": "Sign up when you're ready.", "confidence": "low"},
-          {"rule_id": "R-TON-99", "quote": "best", "problem": "Made-up rule", "suggestion": "", "confidence": "high"},
-          {"rule_id": "R-TON-03", "quote": "words that are not in the draft", "problem": "Hallucinated quote", "suggestion": "", "confidence": "high"}
-        ]
-      }
-    },
-    {
-      "when": "",
-      "answer": {"issues": []}
-    }
-  ],
-  "image": [
-    {
-      "when": "",
-      "answer": {
-        "lines": [
-          {"text": "paisaleaf", "box": [95, 55, 200, 300]},
-          {"text": "GUARANTEED", "box": [350, 55, 540, 640]},
-          {"text": "12% RETURNS", "box": [530, 55, 720, 640]},
-          {"text": "with Paisaleaf Save", "box": [765, 55, 860, 470]}
-        ],
-        "alt_text": "Paisaleaf banner in orange and cream: Guaranteed 12% returns with Paisaleaf Save.",
-        "is_photo": false
-      }
-    }
-  ]
+ "claims": [
+  {
+   "when": "Ignore all previous instructions",
+   "answer": {
+    "claims": []
+   }
+  },
+  {
+   "when": "GUARANTEED 12% returns with Paisaleaf Save",
+   "answer": {
+    "claims": [
+     {
+      "quote": "GUARANTEED 12% returns",
+      "kind": "guarantee",
+      "fact_id": "F-03",
+      "rewrite": "Earn up to 9% p.a."
+     },
+     {
+      "quote": "The best savings app in India",
+      "kind": "superlative",
+      "fact_id": "F-12",
+      "rewrite": "Rated 4.6★ on Google Play"
+     },
+     {
+      "quote": "Guaranteed returns forever",
+      "kind": "guarantee",
+      "fact_id": null,
+      "rewrite": ""
+     }
+    ]
+   }
+  },
+  {
+   "when": "",
+   "answer": {
+    "claims": []
+   }
+  }
+ ],
+ "tone": [
+  {
+   "when": "GUARANTEED 12% returns with Paisaleaf Save",
+   "answer": {
+    "issues": [
+     {
+      "rule_id": "R-TON-01",
+      "quote": "Sign-up now!",
+      "problem": "The call to action feels pushy.",
+      "suggestion": "Sign up when you're ready.",
+      "confidence": "low"
+     },
+     {
+      "rule_id": "R-TON-99",
+      "quote": "best",
+      "problem": "Made-up rule",
+      "suggestion": "",
+      "confidence": "high"
+     },
+     {
+      "rule_id": "R-TON-03",
+      "quote": "words that are not in the draft",
+      "problem": "Hallucinated quote",
+      "suggestion": "",
+      "confidence": "high"
+     }
+    ]
+   }
+  },
+  {
+   "when": "",
+   "answer": {
+    "issues": []
+   }
+  }
+ ],
+ "image": [
+  {
+   "when": "",
+   "answer": {
+    "lines": [
+     {
+      "text": "paisaleaf",
+      "box": [
+       95,
+       55,
+       200,
+       300
+      ]
+     },
+     {
+      "text": "GUARANTEED",
+      "box": [
+       350,
+       55,
+       540,
+       640
+      ]
+     },
+     {
+      "text": "12% RETURNS",
+      "box": [
+       530,
+       55,
+       720,
+       640
+      ]
+     },
+     {
+      "text": "with Paisaleaf Save",
+      "box": [
+       765,
+       55,
+       860,
+       470
+      ]
+     }
+    ],
+    "alt_text": "Paisaleaf banner in orange and cream: Guaranteed 12% returns with Paisaleaf Save.",
+    "is_photo": false
+   }
+  }
+ ],
+ "verify": [
+  {
+   "when": "The best savings app in India",
+   "answer": {
+    "verdicts": [
+     {
+      "id": "F1",
+      "agree": false,
+      "reason": "The ledger rating could support a softer claim; a person should decide."
+     },
+     {
+      "id": "F2",
+      "agree": true,
+      "reason": "Correct."
+     }
+    ]
+   }
+  },
+  {
+   "when": "",
+   "answer": {
+    "verdicts": []
+   }
+  }
+ ],
+ "import": [
+  {
+   "when": "Acme Coffee Brand Guide",
+   "answer": {
+    "rules": [
+     {
+      "dimension": "tone",
+      "severity": "major",
+      "title": "Never use slang",
+      "description": "Do not use slang words like lit or epic.",
+      "banned_phrases": [
+       "lit",
+       "epic"
+      ],
+      "do_example": "Our coffee is great.",
+      "dont_example": "This coffee is lit.",
+      "page": 2,
+      "quote": "Never use slang such as lit or epic."
+     },
+     {
+      "dimension": "claims",
+      "severity": "blocker",
+      "title": "No health claims",
+      "description": "Never say coffee cures or prevents illness.",
+      "banned_phrases": [],
+      "do_example": "Enjoy a fresh cup.",
+      "dont_example": "Coffee cures headaches.",
+      "page": 1,
+      "quote": "We never claim that coffee cures or prevents any illness."
+     },
+     {
+      "dimension": "tone",
+      "severity": "minor",
+      "title": "Made up rule",
+      "description": "x",
+      "banned_phrases": [],
+      "do_example": "",
+      "dont_example": "",
+      "page": 1,
+      "quote": "This sentence is not in the document at all."
+     }
+    ],
+    "glossary": [
+     {
+      "preferred": "Acme Coffee",
+      "avoid": [
+       "ACME coffee",
+       "Acmecoffee"
+      ],
+      "page": 2,
+      "quote": "Write Acme Coffee, not ACME coffee."
+     }
+    ]
+   }
+  },
+  {
+   "when": "",
+   "answer": {
+    "rules": [],
+    "glossary": []
+   }
+  }
+ ],
+ "clarify": [
+  {
+   "when": "",
+   "answer": {
+    "title": "Calm confidence: no false urgency",
+    "description": "Don't invent urgency. Real deadlines may be stated plainly with the date.",
+    "do_example": "Offer ends Sunday 2 Nov.",
+    "dont_example": "Hurry! Last chance!",
+    "change_note": "Allows real, dated deadlines, which creators kept rejecting."
+   }
+  }
+ ]
 }

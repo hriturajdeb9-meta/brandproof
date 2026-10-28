@@ -186,3 +186,28 @@ def check_alt_text(kit: Kit, has_image: bool, alt: str, suggested_alt: str | Non
 
 def strip_emoji(text: str) -> str:
     return EMOJI_RE.sub("", text)
+
+
+def check_sensitive(kit: Kit, text: str, target: str = "text") -> list[dict]:
+    """Confidential terms (from the Brand Kit) and personal ID numbers must never be published."""
+    from ..redact import LABELS, SENSITIVE, find_sensitive
+
+    out = []
+    for h in find_sensitive(text, kit.confidential):
+        span = (h["start"], h["end"]) if target == "text" else None
+        if h["kind"] == "confidential" and kit.rule("R-CNF-01"):
+            fix = {"type": "remove", "find": h["value"], "text": ""} if target == "text" else {
+                "type": "advice", "text": f"Remove “{h['value']}” from the design."}
+            out.append(make_finding(
+                kit, "R-CNF-01", title=f"Confidential term: “{h['value']}”",
+                message="This term is on the Brand Kit's confidential list (for example an unannounced product or "
+                        "codename) and must not appear in published content.", quote=h["value"], target=target,
+                span=span, fix=fix, evidence=[{"label": "Confidential list", "value": h.get("term", h["value"])}]))
+        elif h["kind"] in SENSITIVE and kit.rule("R-CNF-02"):
+            out.append(make_finding(
+                kit, "R-CNF-02", title=f"Personal data: {LABELS[h['kind']]}",
+                message=f"This looks like a real {LABELS[h['kind']]}. Published content must never contain one.",
+                quote=h["value"], target=target, span=span,
+                fix={"type": "remove", "find": h["value"], "text": ""} if target == "text" else {
+                    "type": "advice", "text": "Remove the number from the design."}))
+    return out

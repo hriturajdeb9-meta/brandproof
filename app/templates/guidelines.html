@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Import a guideline{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Import a brand guideline</h1>
+  <p class="lead">Upload your brand guideline and Brandproof drafts the rules for you. You stay in charge: nothing is used until you approve it.</p>
+</div>
+<div class="split">
+  <section class="card">
+    <h2>Upload</h2>
+    <form class="form" method="post" action="/guidelines" enctype="multipart/form-data" data-once>
+      <label>Guideline file <span class="hint">PDF, Word (.docx), or text (.txt / .md) · up to 8 MB and 60 pages</span>
+        <input type="file" name="file" required accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown">
+      </label>
+      <button class="btn btn-primary" type="submit">Read guideline and draft rules</button>
+    </form>
+    {% if is_demo %}<p class="small">No guideline handy? Try <a href="/static/samples/paisaleaf-brand-guidelines.pdf" download>paisaleaf-brand-guidelines.pdf</a> (6 pages).</p>{% endif %}
+  </section>
+  <section class="card">
+    <h2>What happens</h2>
+    <ol class="tight small">
+      <li><b>Read.</b> Text is taken page by page. Colour codes are picked up by code for your palette.</li>
+      <li><b>Draft.</b> The AI turns each requirement into one small rule with a dimension, severity, do/don't examples, its page and the exact sentence it came from.</li>
+      <li><b>Verify by code.</b> Brandproof checks the quoted sentence is really on that page (and fixes the page if it's elsewhere). Banned words become code rules that are tested with their examples. Near-duplicates of your rules are flagged.</li>
+      <li><b>You approve.</b> Approve, edit or discard each one. Approved rules get an ID, a source and version 1, and apply to the next check.</li>
+    </ol>
+    <p class="small muted">The guideline is sent to the AI provider shown at the top. If the AI is busy, simple sentence patterns still find rules for you to finish by hand.</p>
+  </section>
+</div>
+<section class="card">
+  <h2>Imports</h2>
+  {% if rows %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Guideline</th><th>Pages</th><th>Status</th><th>Drafted</th><th>Uploaded</th></tr></thead>
+    <tbody>{% for g in rows %}
+      <tr><td><a href="/guidelines/{{ g.id }}"><b>{{ g.name }}</b></a></td><td>{{ g.page_count }}</td>
+        <td>{% if g.state == 'reading' %}<span class="tag">reading…</span>{% elif g.state == 'failed' %}<span class="tag sev-major">failed</span>{% else %}<span class="tag ok">ready</span>{% endif %}</td>
+        <td>{% if g.counts.total %}{{ g.counts.total }} · <b>{{ g.counts.pending }}</b> to review · {{ g.counts.approved }} approved{% else %}—{% endif %}</td>
+        <td class="small muted">{{ g.created_by }} · {{ g.created_at | when }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  {% else %}<p class="empty">No guidelines imported yet.</p>{% endif %}
+</section>
+{% endblock %}

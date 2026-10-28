@@ -21,8 +21,8 @@ from app.checks.pipeline import run_checks  # noqa: E402
 from app.colour import ciede2000, contrast, hex_to_rgb  # noqa: E402
 from app.db import Database  # noqa: E402
 from app.kit import load_kit  # noqa: E402
-from app.main import apply_fix  # noqa: E402
-from app.seed import SAMPLE_POST, seed_kit  # noqa: E402
+from app.routes_drafts import apply_fix  # noqa: E402
+from app.seed import SAMPLE_POST, seed_kit_rows  # noqa: E402
 from app.textutil import find_span, segments  # noqa: E402
 
 BANNER = os.path.join(ROOT, "app", "static", "samples", "paisaleaf-banner.png")
@@ -33,8 +33,8 @@ def fresh(provider="none"):
     os.environ["FAKE_AI_FILE"] = os.path.join(ROOT, "tests", "fake_ai.json")
     db = Database(sqlite_path=":memory:")
     db.init_schema()
-    seed_kit(db)
-    return db, load_kit(db), AIGateway(db)
+    seed_kit_rows(db, 1, "demo")
+    return db, load_kit(db, 1), AIGateway(db)
 
 
 def run(text, provider="none", image=None, alt="", locked=None):

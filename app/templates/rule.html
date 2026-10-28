@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{{ rid }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="back" href="/kit?tab=rules">← Brand Kit</a>
+  <div class="title-row">
+    <h1>{{ rid }}{% if rule %}: {{ rule.title }}{% endif %}</h1>
+    {% if rule %}<span class="tag sev-{{ rule.severity }}">{{ rule.severity }}</span>{% if not rule.active %}<span class="tag">inactive</span>{% endif %}{% else %}<span class="tag sev-major">deleted</span>{% endif %}
+  </div>
+  {% if rule %}<p class="muted">{{ DIMENSION_LABELS.get(rule.dimension, rule.dimension) }} · {% if rule.method == 'code' %}checked by code{% elif rule.method == 'ai' %}judged by AI, verified by code{% else %}code and AI{% endif %} · version {{ rule.version or 1 }}{% if built_in %} · used by the built-in check for {{ built_in }}{% endif %}</p>{% endif %}
+</div>
+
+{% if rule %}
+<div class="split">
+  <div class="col-left">
+    <section class="card">
+      <h2>Current rule</h2>
+      <p>{{ rule.description }}</p>
+      <dl class="kv">
+        <dt>Do</dt><dd class="ok-text">{{ rule.do_example or '—' }}</dd>
+        <dt>Don't</dt><dd class="bad-text">{{ rule.dont_example or '—' }}</dd>
+        {% if rule.pattern %}<dt>Pattern</dt><dd class="mono">{{ rule.pattern }}</dd>{% endif %}
+        {% if rule.fix_hint %}<dt>Fix hint</dt><dd>{{ rule.fix_hint }}</dd>{% endif %}
+        <dt>Source</dt><dd>{{ rule.source or '—' }}</dd>
+        {% if rule.source_quote %}<dt>From the guideline</dt><dd><blockquote class="src-quote">“{{ rule.source_quote }}”</blockquote></dd>{% endif %}
+      </dl>
+      {% if role == 'brand' %}<p class="row-actions"><a class="btn btn-small" href="/kit?tab=rules&edit={{ rule.id }}#form">Edit rule</a></p>{% endif %}
+    </section>
+
+    {% set t = (versions[0].tests_obj if versions else none) %}
+    <section class="card">
+      <h2>Example tests</h2>
+      <p class="small muted">The rule's own examples are run as tests: the “don't” example must break the rule and the “do” example must pass.</p>
+      {% if t %}
+        {% if t.note %}<p class="small">{{ t.note }}</p>{% endif %}
+        {% if t.cases %}<table class="table small"><thead><tr><th>Example</th><th>Expected</th><th>Result</th></tr></thead><tbody>
+        {% for x in t.cases %}<tr><td><b>{{ x.label }}</b>: “{{ x.text }}”</td><td>{{ x.expected }}</td><td>{% if x.pass %}<span class="tag ok">pass</span>{% else %}<span class="tag sev-blocker">fail</span>{% endif %} <span class="muted">({{ x.how }})</span></td></tr>{% endfor %}
+        </tbody></table>{% endif %}
+        <p class="small muted">Last run {{ t.ran_at | when }}{% if t.ai %} with AI{% endif %}.</p>
+      {% else %}<p class="small">Not tested yet.</p>{% endif %}
+      {% if role == 'brand' %}
+      <div class="row-actions">
+        <form method="post" action="/kit/rules/{{ rule.id }}/test" data-once><button class="btn btn-small" type="submit">Run tests (code)</button></form>
+        {% if rule.method != 'code' and ai_on %}<form method="post" action="/kit/rules/{{ rule.id }}/test" data-once><input type="hidden" name="ai" value="1"><button class="btn btn-small" type="submit">Run tests with AI</button></form>{% endif %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  <div class="col-right">
+    <section class="card">
+      <h2>How it's used</h2>
+      {% if usage and usage.fired %}
+      <ul class="tight">
+        <li>Found <b>{{ usage.fired }}</b> time{{ 's' if usage.fired != 1 }} in drafts</li>
+        <li>Fixes accepted {{ usage.accepted }}× · edited {{ usage.edited }}× · rejected {{ usage.rejected }}×</li>
+        {% if usage.needs_human %}<li>AI unsure {{ usage.needs_human }}×</li>{% endif %}
+        {% if usage.disagreed %}<li>Second opinion disagreed {{ usage.disagreed }}×</li>{% endif %}
+      </ul>
+      {% if usage.reasons %}<h3>Reasons people gave for rejecting</h3><ul class="tight small">{% for r in usage.reasons %}<li>“{{ r }}”</li>{% endfor %}</ul>{% endif %}
+      {% if role == 'brand' and usage.rejected and ai_on %}
+      <form method="post" action="/kit/rules/{{ rule.id }}/clarify" data-once><button class="btn btn-small" type="submit">Suggest clearer wording (AI)</button></form>
+      {% endif %}
+      {% else %}<p class="small muted">Not found in any draft yet.</p>{% endif %}
+    </section>
+  </div>
+</div>
+{% endif %}
+
+<section class="card">
+  <h2>Version history</h2>
+  {% for v in versions %}
+  <div class="version-row">
+    <div><b>v{{ v.version }}</b> · {{ v.note or '' }} · {{ v.created_by }} · <span class="muted small">{{ v.created_at | when }}</span>
+      {% if v.tests_obj %}{% if v.tests_obj.status == 'pass' %}<span class="tag ok">tests pass</span>{% elif v.tests_obj.status == 'fail' %}<span class="tag sev-blocker">test fails</span>{% endif %}{% endif %}</div>
+    {% if v.changed %}<div class="small">Changed: {{ v.changed | join(', ') | replace('_', ' ') }}</div>{% endif %}
+    <details class="small"><summary>Show this version</summary>
+      <dl class="kv">{% for k in ['title', 'description', 'severity', 'method', 'pattern', 'do_example', 'dont_example', 'source'] %}<dt>{{ k | replace('_', ' ') }}</dt><dd>{{ v.data_obj.get(k) or '—' }}</dd>{% endfor %}</dl>
+      {% if role == 'brand' and rule and v.version != rule.version %}
+      <form method="post" action="/kit/rules/{{ rid }}/restore" data-confirm="Restore version {{ v.version }} as a new version?"><input type="hidden" name="version" value="{{ v.version }}"><button class="btn btn-small" type="submit">Restore this version</button></form>
+      {% endif %}
+    </details>
+  </div>
+  {% else %}<p class="empty">No history.</p>{% endfor %}
+</section>
+{% endblock %}

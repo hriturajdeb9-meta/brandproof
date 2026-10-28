@@ -57,6 +57,8 @@ class Kit:
     palette: list[dict]
     disclaimer: str
     hash: str
+    confidential: list[str] = field(default_factory=list)
+    workspace_id: int | None = None
     compiled: dict[str, re.Pattern] = field(default_factory=dict)
 
     def rule(self, rule_id: str) -> dict | None:
@@ -103,21 +105,33 @@ def _num(v):
         return None
 
 
-def load_kit(db: Database) -> Kit:
-    rules = {r["id"]: r for r in db.all("SELECT * FROM rules")}
-    glossary = db.all("SELECT * FROM glossary ORDER BY id")
+def load_kit(db: Database, workspace_id: int) -> Kit:
+    ws = (workspace_id,)
+    rules = {r["id"]: r for r in db.all("SELECT * FROM rules WHERE workspace_id = ?", ws)}
+    glossary = db.all("SELECT * FROM glossary WHERE workspace_id = ? ORDER BY id", ws)
     facts = {}
-    for f in db.all("SELECT * FROM facts ORDER BY id"):
+    for f in db.all("SELECT * FROM facts WHERE workspace_id = ? ORDER BY id", ws):
         facts[f["id"]] = Fact(
             id=f["id"], topic=f.get("topic") or f["id"], label=f["label"], statement=f["statement"],
             value=_num(f.get("value")), value_text=f.get("value") or "", approved_wording=f.get("approved_wording") or "",
             keywords=[k.strip().lower() for k in (f.get("keywords") or "").split(",") if k.strip()],
             evidence=f.get("evidence") or "", owner=f.get("owner") or "", valid_until=f.get("valid_until") or "",
         )
-    palette = db.all("SELECT * FROM palette ORDER BY id")
-    disclaimer = db.get_meta("disclaimer") or ""
+    palette = db.all("SELECT * FROM palette WHERE workspace_id = ? ORDER BY id", ws)
+    confidential = [c["term"] for c in db.all("SELECT term FROM confidential WHERE workspace_id = ? ORDER BY id", ws)
+                    if (c.get("term") or "").strip()]
+    disclaimer = ""
+    for r in sorted(rules.values(), key=lambda r: r["id"]):
+        hint = (r.get("fix_hint") or "").strip()
+        if r.get("active") and hint.lower().startswith("append:"):
+            disclaimer = hint.split(":", 1)[1].strip()
+            break
+    for r in rules.values():
+        r.pop("updated_at", None)
     digest = hashlib.sha256(
-        json.dumps([sorted(rules.items()), glossary, [f.__dict__ for f in facts.values()], palette, disclaimer],
+        json.dumps([sorted(rules.items()), [{k: v for k, v in g.items() if k != "updated_at"} for g in glossary],
+                    [f.__dict__ for f in facts.values()], [(p["name"], p["hex"]) for p in palette], confidential],
                    sort_keys=True, default=str).encode()
     ).hexdigest()[:12]
-    return Kit(rules=rules, glossary=glossary, facts=facts, palette=palette, disclaimer=disclaimer, hash=digest)
+    return Kit(rules=rules, glossary=glossary, facts=facts, palette=palette, disclaimer=disclaimer, hash=digest,
+               confidential=confidential, workspace_id=workspace_id)

@@ -1,28 +1,72 @@
 """Tiny database layer.
 
-Uses PostgreSQL when DATABASE_URL is set (for example a Supabase project) and
-falls back to a local SQLite file otherwise. All SQL in the app is written once
-with `?` placeholders and runs on both engines.
+Uses PostgreSQL when DATABASE_URL is set (for example a Supabase project) and falls back to a local SQLite
+file otherwise. All SQL in the app is written once with `?` placeholders and runs on both engines.
+
+Workspaces and roles
+--------------------
+Every brand's data lives in a workspace. Each request runs "as" one signed-in user in one workspace (set with
+`Database.acting_as`). On PostgreSQL the app then switches to the restricted `bp_app` database role and the
+row-level-security policies in app/rls.sql decide what that user may read and change, from their membership
+row. So even a bug in the app cannot show one workspace's drafts to another, let a reviewer edit the Brand
+Kit, or rewrite the audit log. On SQLite (local development) the same rules are enforced by the app only.
 """
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import os
 import sqlite3
 import threading
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 log = logging.getLogger("brandproof.db")
 _SQL_LOG = os.environ.get("BP_SQL_LOG", "")
+SCHEMA_VERSION = "3"
 
+# (user_id, workspace_id) of whoever the current request or background job acts for; None = system
+_acting: contextvars.ContextVar[tuple[int, int] | None] = contextvars.ContextVar("bp_acting", default=None)
+
+WS = "workspace_id INTEGER NOT NULL"
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
         value TEXT
     )""",
-    """CREATE TABLE IF NOT EXISTS rules (
-        id TEXT PRIMARY KEY,
+    """CREATE TABLE IF NOT EXISTS users (
+        id {pk},
+        email TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        auth_id TEXT,
+        password_hash TEXT,
+        last_workspace INTEGER,
+        created_at TEXT
+    )""",
+    """CREATE TABLE IF NOT EXISTS workspaces (
+        id {pk},
+        name TEXT NOT NULL,
+        is_demo INTEGER DEFAULT 0,
+        disclaimer TEXT,
+        created_by INTEGER,
+        created_at TEXT
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS members (
+        id {{pk}},
+        {WS},
+        user_id INTEGER,
+        email TEXT NOT NULL,
+        role TEXT NOT NULL,
+        title TEXT,
+        added_by TEXT,
+        created_at TEXT,
+        UNIQUE (workspace_id, email)
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS rules (
+        {WS},
+        id TEXT NOT NULL,
         dimension TEXT NOT NULL,
         title TEXT NOT NULL,
         description TEXT,
@@ -33,19 +77,35 @@ SCHEMA = [
         do_example TEXT,
         dont_example TEXT,
         source TEXT,
+        source_quote TEXT,
         active INTEGER DEFAULT 1,
-        updated_at TEXT
+        version INTEGER DEFAULT 1,
+        updated_at TEXT,
+        PRIMARY KEY (workspace_id, id)
     )""",
-    """CREATE TABLE IF NOT EXISTS glossary (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS rule_versions (
+        id {{pk}},
+        {WS},
+        rule_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        note TEXT,
+        tests TEXT,
+        created_by TEXT,
+        created_at TEXT
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS glossary (
+        id {{pk}},
+        {WS},
         preferred TEXT NOT NULL,
         avoid TEXT NOT NULL,
         note TEXT,
         rule_id TEXT,
         updated_at TEXT
     )""",
-    """CREATE TABLE IF NOT EXISTS facts (
-        id TEXT PRIMARY KEY,
+    f"""CREATE TABLE IF NOT EXISTS facts (
+        {WS},
+        id TEXT NOT NULL,
         topic TEXT,
         label TEXT NOT NULL,
         statement TEXT NOT NULL,
@@ -55,16 +115,26 @@ SCHEMA = [
         evidence TEXT,
         owner TEXT,
         valid_until TEXT,
-        updated_at TEXT
+        updated_at TEXT,
+        PRIMARY KEY (workspace_id, id)
     )""",
-    """CREATE TABLE IF NOT EXISTS palette (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS palette (
+        id {{pk}},
+        {WS},
         name TEXT NOT NULL,
         hex TEXT NOT NULL,
         updated_at TEXT
     )""",
-    """CREATE TABLE IF NOT EXISTS drafts (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS confidential (
+        id {{pk}},
+        {WS},
+        term TEXT NOT NULL,
+        note TEXT,
+        updated_at TEXT
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS drafts (
+        id {{pk}},
+        {WS},
         title TEXT NOT NULL,
         channel TEXT,
         goal TEXT,
@@ -77,10 +147,13 @@ SCHEMA = [
         working_body TEXT,
         working_alt TEXT,
         working_dirty INTEGER DEFAULT 0,
-        review_reason TEXT
+        review_reason TEXT,
+        client_token TEXT,
+        UNIQUE (workspace_id, client_token)
     )""",
-    """CREATE TABLE IF NOT EXISTS versions (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS versions (
+        id {{pk}},
+        {WS},
         draft_id INTEGER NOT NULL,
         n INTEGER NOT NULL,
         body TEXT,
@@ -88,14 +161,20 @@ SCHEMA = [
         image_mime TEXT,
         alt_text TEXT,
         source_name TEXT,
+        pages TEXT,
+        state TEXT DEFAULT 'done',
+        error TEXT,
         findings TEXT,
         summary TEXT,
         kit_hash TEXT,
         created_by TEXT,
-        created_at TEXT
+        created_uid INTEGER,
+        created_at TEXT,
+        UNIQUE (draft_id, n)
     )""",
-    """CREATE TABLE IF NOT EXISTS decisions (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS decisions (
+        id {{pk}},
+        {WS},
         draft_id INTEGER NOT NULL,
         version_n INTEGER NOT NULL,
         finding_key TEXT NOT NULL,
@@ -106,10 +185,12 @@ SCHEMA = [
         before_text TEXT,
         after_text TEXT,
         actor TEXT,
-        created_at TEXT
+        created_at TEXT,
+        UNIQUE (draft_id, version_n, finding_key)
     )""",
-    """CREATE TABLE IF NOT EXISTS comments (
-        id {pk},
+    f"""CREATE TABLE IF NOT EXISTS comments (
+        id {{pk}},
+        {WS},
         draft_id INTEGER NOT NULL,
         actor TEXT,
         role TEXT,
@@ -118,12 +199,41 @@ SCHEMA = [
     )""",
     """CREATE TABLE IF NOT EXISTS audit (
         id {pk},
+        workspace_id INTEGER,
         draft_id INTEGER,
         actor TEXT,
         role TEXT,
         action TEXT NOT NULL,
         detail TEXT,
         created_at TEXT
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS guidelines (
+        id {{pk}},
+        {WS},
+        name TEXT NOT NULL,
+        pages TEXT,
+        page_count INTEGER,
+        state TEXT DEFAULT 'reading',
+        error TEXT,
+        stats TEXT,
+        created_by TEXT,
+        created_uid INTEGER,
+        created_at TEXT
+    )""",
+    f"""CREATE TABLE IF NOT EXISTS candidates (
+        id {{pk}},
+        {WS},
+        guideline_id INTEGER NOT NULL,
+        kind TEXT NOT NULL,
+        data TEXT NOT NULL,
+        page INTEGER,
+        quote TEXT,
+        verified INTEGER DEFAULT 0,
+        verify_note TEXT,
+        status TEXT DEFAULT 'pending',
+        result_id TEXT,
+        decided_by TEXT,
+        decided_at TEXT
     )""",
     """CREATE TABLE IF NOT EXISTS ai_calls (
         id {pk},
@@ -141,11 +251,20 @@ SCHEMA = [
         response TEXT,
         created_at TEXT
     )""",
+    "CREATE INDEX IF NOT EXISTS idx_members_user ON members (user_id)",
+    "CREATE INDEX IF NOT EXISTS idx_drafts_ws ON drafts (workspace_id, updated_at)",
     "CREATE INDEX IF NOT EXISTS idx_versions_draft ON versions (draft_id, n)",
+    "CREATE INDEX IF NOT EXISTS idx_versions_state ON versions (state)",
     "CREATE INDEX IF NOT EXISTS idx_decisions_draft ON decisions (draft_id, version_n)",
+    "CREATE INDEX IF NOT EXISTS idx_audit_ws ON audit (workspace_id, id)",
     "CREATE INDEX IF NOT EXISTS idx_audit_draft ON audit (draft_id)",
     "CREATE INDEX IF NOT EXISTS idx_comments_draft ON comments (draft_id)",
+    "CREATE INDEX IF NOT EXISTS idx_candidates_g ON candidates (guideline_id)",
+    "CREATE INDEX IF NOT EXISTS idx_rule_versions ON rule_versions (workspace_id, rule_id, version)",
 ]
+
+WORKSPACE_TABLES = ["members", "rules", "rule_versions", "glossary", "facts", "palette", "confidential", "drafts",
+                    "versions", "decisions", "comments", "audit", "guidelines", "candidates"]
 
 
 def now_iso() -> str:
@@ -155,11 +274,14 @@ def now_iso() -> str:
 class Database:
     def __init__(self, url: str | None = None, sqlite_path: str | None = None):
         self.url = (url if url is not None else os.environ.get("DATABASE_URL", "")).strip()
-        self.sqlite_path = sqlite_path or os.environ.get("SQLITE_PATH", "data/brandproof.db")
+        self.sqlite_path = sqlite_path or os.environ.get("SQLITE_PATH", "data/brandproof-v3.db")
         self.lock = threading.RLock()
         self.kind = "sqlite"
         self.warning = ""
+        self.rls = False          # True when PostgreSQL row-level security is active
+        self.rls_note = "Local SQLite database: roles are enforced by the app."
         self._conn = None
+        self._state: tuple | None = None  # what the connection is currently set to act as
         if self.url.startswith(("postgres://", "postgresql://")):
             try:
                 self._connect_pg()
@@ -179,6 +301,7 @@ class Database:
         self._conn = psycopg.connect(
             self.url, autocommit=True, row_factory=dict_row, prepare_threshold=None, connect_timeout=10
         )
+        self._state = None
 
     def _connect_sqlite(self):
         if self.sqlite_path != ":memory:":
@@ -186,13 +309,54 @@ class Database:
         self._conn = sqlite3.connect(self.sqlite_path, check_same_thread=False, isolation_level=None)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
-        self._conn.execute("PRAGMA foreign_keys=ON")
+        self._conn.execute("PRAGMA busy_timeout=5000")
         self.kind = "sqlite"
 
     def _sql(self, sql: str) -> str:
         if self.kind == "postgres":
-            return sql.replace("?", "%s")
+            return sql.replace("%", "%%").replace("?", "%s")
         return sql
+
+    # ------------------------------------------------------------- acting as
+    @staticmethod
+    def acting() -> tuple[int, int] | None:
+        return _acting.get()
+
+    @contextmanager
+    def acting_as(self, user_id: int | None, workspace_id: int | None):
+        token = _acting.set((int(user_id), int(workspace_id)) if user_id and workspace_id else None)
+        try:
+            yield
+        finally:
+            _acting.reset(token)
+
+    @contextmanager
+    def as_system(self):
+        token = _acting.set(None)
+        try:
+            yield
+        finally:
+            _acting.reset(token)
+
+    def set_acting(self, user_id: int | None, workspace_id: int | None):
+        """Set the acting user for the rest of the current context (used by the request middleware)."""
+        return _acting.set((int(user_id), int(workspace_id)) if user_id and workspace_id else None)
+
+    def _apply_state(self, cur) -> None:
+        """Make the PostgreSQL session act as the current user (restricted role + settings) or as the system."""
+        if not self.rls:
+            return
+        want = _acting.get()
+        if want == self._state:
+            return
+        if want is None:
+            cur.execute("RESET ROLE")
+            cur.execute("SELECT set_config('app.user_id', '', false), set_config('app.workspace_id', '', false)")
+        else:
+            cur.execute("SELECT set_config('app.user_id', %s, false), set_config('app.workspace_id', %s, false)",
+                        (str(want[0]), str(want[1])))
+            cur.execute("SET ROLE bp_app")
+        self._state = want
 
     def _run(self, sql: str, params=(), fetch: str = "all"):
         if _SQL_LOG:  # development aid: record every statement (used to verify PostgreSQL compatibility)
@@ -202,6 +366,7 @@ class Database:
             for attempt in (1, 2):
                 try:
                     cur = self._conn.cursor()
+                    self._apply_state(cur)
                     cur.execute(self._sql(sql), tuple(params))
                     if fetch == "none":
                         return None
@@ -236,30 +401,58 @@ class Database:
 
     def init_schema(self) -> None:
         pk = "SERIAL PRIMARY KEY" if self.kind == "postgres" else "INTEGER PRIMARY KEY AUTOINCREMENT"
-        for stmt in SCHEMA:
-            self.execute(stmt.replace("{pk}", pk))
+        with self.as_system():
+            for stmt in SCHEMA:
+                self.execute(stmt.replace("{pk}", pk))
+            if self.kind == "postgres":
+                self._setup_rls()
+
+    def _setup_rls(self) -> None:
+        """Install the restricted role and row-level-security policies (idempotent)."""
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rls.sql")
+        with open(path, encoding="utf-8") as fh:
+            script = fh.read()
+        try:
+            with self.lock:
+                cur = self._conn.cursor()
+                cur.execute("RESET ROLE")
+                self._state = None
+                cur.execute(script)
+            self.rls = True
+            self.rls_note = ("PostgreSQL row-level security is on: the database itself checks every read and write "
+                             "against the user's workspace membership and role.")
+        except Exception as exc:
+            log.exception("Could not enable row-level security")
+            self.rls = False
+            self.rls_note = f"Row-level security could not be enabled ({type(exc).__name__}); roles are enforced by the app."
+            self.warning = self.warning or "Database-level role checks are off; the app still enforces roles."
 
     def claim_once(self, key: str) -> bool:
         """Atomically mark a one-time job (like seeding) as done. True only for the first caller."""
-        row = self.one(
-            "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING RETURNING key",
-            (key, now_iso()),
-        )
+        with self.as_system():
+            row = self.one(
+                "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING RETURNING key",
+                (key, now_iso()),
+            )
         return row is not None
 
     def get_meta(self, key: str) -> str | None:
-        return self.scalar("SELECT value FROM meta WHERE key = ?", (key,))
+        with self.as_system():
+            return self.scalar("SELECT value FROM meta WHERE key = ?", (key,))
 
     def set_meta(self, key: str, value: str) -> None:
-        self.execute(
-            "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-            (key, value),
-        )
+        with self.as_system():
+            self.execute(
+                "INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
 
-    def audit(self, action: str, actor: str, role: str, draft_id: int | None = None, detail: dict | None = None):
+    def audit(self, action: str, actor: str, role: str, draft_id: int | None = None, detail: dict | None = None,
+              workspace_id: int | None = None):
+        ws = workspace_id if workspace_id is not None else (_acting.get() or (None, None))[1]
         self.execute(
-            "INSERT INTO audit (draft_id, actor, role, action, detail, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (draft_id, actor, role, action, json.dumps(detail or {}, ensure_ascii=False), now_iso()),
+            "INSERT INTO audit (workspace_id, draft_id, actor, role, action, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (ws, draft_id, actor, role, action, json.dumps(detail or {}, ensure_ascii=False), now_iso()),
         )
 
 

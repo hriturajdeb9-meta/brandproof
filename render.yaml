@@ -1,4 +1,4 @@
-# Render blueprint: New + > Blueprint > pick this repo. Fill in the two secret values when asked.
+# Render blueprint: New + > Blueprint > pick this repo. Fill in the secret values when asked (never commit them).
 services:
   - type: web
     name: brandproof
@@ -10,9 +10,15 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.5
-      - key: GEMINI_API_KEY
+      - key: GEMINI_API_KEY      # main AI (Google AI Studio)
         sync: false
-      - key: DATABASE_URL
+      - key: GROQ_API_KEY        # backup AI and the independent second opinion (console.groq.com)
         sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash
+      - key: DATABASE_URL        # Supabase "Session pooler" connection string
+        sync: false
+      - key: SUPABASE_URL        # optional: Supabase Auth for sign-in (Project Settings > API)
+        sync: false
+      - key: SUPABASE_ANON_KEY   # optional: the public "anon" key, not the service-role key
+        sync: false
+      - key: SESSION_SECRET      # optional: random string; otherwise one is generated and kept in the database
+        generateValue: true

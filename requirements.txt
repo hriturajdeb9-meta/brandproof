@@ -7,5 +7,8 @@ python-multipart==0.0.32
 pillow==12.3.0
 python-docx==1.2.0
 requests==2.34.2
+# reading PDF drafts and guidelines; writing the PDF approval record
+pypdf>=5.0,<7
+reportlab>=4.2,<6
 # PostgreSQL driver (used when DATABASE_URL is set, e.g. Supabase)
 psycopg[binary]>=3.2,<4

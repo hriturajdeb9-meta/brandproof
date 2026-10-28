@@ -16,10 +16,10 @@
 {% if not is_current %}
 <div class="banner info">You are looking at an older version (v{{ n }}). <a href="/drafts/{{ draft.id }}">Go to the latest version</a>.</div>
 {% elif draft.status == 'approved' %}
-<div class="banner ok"><b>Approved.</b> {% if approval %}{% if approval.action == 'draft.auto_approved' %}Cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}Approved by {{ approval.actor }}{% endif %} on {{ approval.created_at | when }}.{% endif %} Version {{ n }} is locked. See the approval record below.</div>
+<div class="banner ok"><b>Approved.</b> {% if approval %}{% if approval.action == 'draft.auto_approved' %}Cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}Approved by {{ approval.actor }}{% endif %} on {{ approval.created_at | when }}.{% endif %} Version {{ n }} is locked. <a href="/drafts/{{ draft.id }}/record.pdf">Download the approval record (PDF)</a>.</div>
 {% elif draft.status == 'in_review' %}
 <div class="banner info"><b>In review.</b> Sent to a reviewer because {{ draft.review_reason }}.
-  {% if role == 'creator' %}Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.{% endif %}</div>
+  {% if role == 'creator' and is_demo %}Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.{% endif %}</div>
 {% elif draft.status == 'changes_requested' %}
 <div class="banner warn"><b>Changes requested.</b> Read the reviewer's comment below, update the draft, re-check and submit again.</div>
 {% elif role == 'reviewer' %}
@@ -41,7 +41,7 @@
 <div class="split">
   <div class="col-left">
     <section class="card">
-      <div class="card-head"><h2>Draft v{{ n }}</h2>{% if version.source_name %}<span class="muted small">from {{ version.source_name }}</span>{% endif %}</div>
+      <div class="card-head"><h2>Draft v{{ n }}</h2>{% if version.source_name %}<span class="muted small">from {{ version.source_name }}{% if version.pages_list %} · {{ version.pages_list | length }} page{{ 's' if version.pages_list|length != 1 }}{% endif %}</span>{% endif %}</div>
       {% if version.image %}
       <figure class="img-wrap">
         <img src="/drafts/{{ draft.id }}/v/{{ n }}/image" alt="{{ version.alt_text or 'Draft image (no alt text yet)' }}">
@@ -62,7 +62,7 @@
       <div class="body-text diff">{{ working_diff }}</div>
       {% if draft.working_alt != version.alt_text %}<p class="alt"><b>New alt text:</b> {{ draft.working_alt }}</p>{% endif %}
       <div class="row-actions">
-        <form method="post" action="/drafts/{{ draft.id }}/recheck" data-busy="Re-checking… (about 10–20 seconds)"><button class="btn btn-primary" type="submit">Re-check as v{{ draft.current_version + 1 }}</button></form>
+        <form method="post" action="/drafts/{{ draft.id }}/recheck" data-once><input type="hidden" name="base" value="{{ draft.current_version }}"><button class="btn btn-primary" type="submit">Re-check as v{{ draft.current_version + 1 }}</button></form>
         <form method="post" action="/drafts/{{ draft.id }}/discard" data-confirm="Discard all changes in your working copy?"><button class="btn" type="submit">Discard changes</button></form>
       </div>
     </section>
@@ -72,15 +72,16 @@
     <section class="card">
       <details {% if draft.status == 'changes_requested' %}open{% endif %}>
         <summary><h2 class="inline-h">Edit the draft yourself</h2> <span class="small muted">change text, alt text or upload a new image, then re-check</span></summary>
-        <form class="form" method="post" action="/drafts/{{ draft.id }}/recheck" enctype="multipart/form-data" data-busy="Re-checking… (about 10–20 seconds)">
-          <label>Text<textarea name="body" rows="6" maxlength="8000">{{ draft.working_body or '' }}</textarea></label>
+        <form class="form" method="post" action="/drafts/{{ draft.id }}/recheck" enctype="multipart/form-data" data-once>
+          <input type="hidden" name="base" value="{{ draft.current_version }}">
+          <label>Text<textarea name="body" rows="6" maxlength="12000">{{ draft.working_body or '' }}</textarea></label>
           <label>Alt text<input name="alt" maxlength="500" value="{{ draft.working_alt or '' }}"></label>
           <div class="grid-2">
             <label>New image <span class="hint">optional; keeps the current image if empty</span><input type="file" name="image" accept="image/png,image/jpeg,image/webp"></label>
             {% if version.image %}<label class="check"><input type="checkbox" name="remove_image" value="1"> Remove the image</label>{% endif %}
           </div>
           <button class="btn btn-primary" type="submit">Save &amp; re-check as v{{ draft.current_version + 1 }}</button>
-          <p class="small muted">Tip: try uploading <a href="/static/samples/paisaleaf-banner-fixed.png" download>banner-fixed.png</a> to fix the image findings.</p>
+          {% if is_demo %}<p class="small muted">Tip: try uploading <a href="/static/samples/paisaleaf-banner-fixed.png" download>banner-fixed.png</a> to fix the image findings.</p>{% endif %}
         </form>
       </details>
     </section>
@@ -94,7 +95,7 @@
       {% else %}
         <p>Drafts with claims, rejected serious findings or open major issues go to a reviewer. Clean drafts are approved automatically.</p>
       {% endif %}
-      <form method="post" action="/drafts/{{ draft.id }}/submit">
+      <form method="post" action="/drafts/{{ draft.id }}/submit" data-once>
         <button class="btn btn-primary" type="submit" {% if draft.working_dirty or open_blockers %}disabled{% endif %}>Submit v{{ n }}</button>
       </form>
     </section>
@@ -104,7 +105,7 @@
     <section class="card review-card">
       <h2>Your review</h2>
       <p class="small">Sent to review because {{ draft.review_reason }}. Check the findings and any rejected ones (with the creator's reasons) on the right.</p>
-      <form class="form" method="post" action="/drafts/{{ draft.id }}/review">
+      <form class="form" method="post" action="/drafts/{{ draft.id }}/review" data-once>
         <label>Comment <span class="hint">required when requesting changes</span><textarea name="comment" rows="3" maxlength="2000"></textarea></label>
         <div class="row-actions">
           <button class="btn btn-primary" name="decision" value="approve" type="submit">Approve v{{ n }}</button>
@@ -125,6 +126,7 @@
         <dt>Checks</dt><dd>{{ summary.issues }} open finding(s) at approval · {{ summary.ai.label }} · brand kit {{ version.kit_hash }}</dd>
         {% if approval.detail_obj.overrides_accepted %}<dt>Overrides</dt><dd><ul class="tight">{% for o in approval.detail_obj.overrides_accepted %}<li><b>{{ o.rule }}</b> {{ o.finding }}: “{{ o.reason }}”</li>{% endfor %}</ul></dd>{% endif %}
       </dl>
+      <p><a class="btn btn-primary btn-small" href="/drafts/{{ draft.id }}/record.pdf">Download approval record (PDF)</a> <span class="small muted">with the content fingerprint, every decision and the activity trail, for auditors.</span></p>
     </section>
     {% endif %}
   </div>
@@ -150,7 +152,9 @@
       <h2>How this check ran</h2>
       <ul class="tight small">
         <li><b>{{ summary.ai.label }}</b>{% if summary.ai.enabled %}: {{ summary.ai.calls | selectattr('ok') | list | length }} of {{ summary.ai.calls | length }} AI calls succeeded{% set cached = summary.ai.calls | selectattr('cached') | list | length %}{% if cached %} ({{ cached }} from cache){% endif %}.{% endif %}</li>
-        {% for c in summary.ai.calls %}{% if not c.ok %}<li class="warn-text">AI {{ c.purpose }} call failed: {{ c.error }}. Code checks still ran.</li>{% endif %}{% endfor %}
+        {% for call in summary.ai.calls %}{% if call.ok and not call.cached %}<li class="small">{{ call.purpose }}: {{ call.provider }} · {{ call.model }}{% if call.fallback %} <span class="tag">backup model</span>{% endif %} · {{ (call.ms / 1000) | round(1) }} s</li>{% elif not call.ok %}<li class="warn-text">AI {{ call.purpose }} call failed: {{ call.error }}. Code checks still ran.</li>{% endif %}{% endfor %}
+        {% if summary.masked and summary.masked.total and summary.ai.enabled %}<li>🔒 Masked before the AI saw the draft: {{ summary.masked.labels | join(', ') }}. They were put back afterwards.</li>{% endif %}
+        {% if summary.second_opinion and summary.second_opinion.checked %}<li>Second opinion ({{ summary.second_opinion.model }}) on {{ summary.second_opinion.checked }} serious AI finding(s): {{ summary.second_opinion.agreed }} agreed{% if summary.second_opinion.disagreed or summary.second_opinion.unsure %}, {{ summary.second_opinion.disagreed + summary.second_opinion.unsure }} sent for human judgment{% endif %}.</li>{% endif %}
         {% if summary.stats.ai_proposed %}<li>AI proposed {{ summary.stats.ai_proposed }} item(s); code discarded {{ summary.stats.ai_discarded }} whose quoted words weren't in the draft or whose rule didn't exist.</li>{% endif %}
         {% if summary.stats.code_added %}<li>Code patterns added {{ summary.stats.code_added }} claim(s) the AI missed.</li>{% endif %}
         {% for note in summary.notes %}<li>{{ note }}</li>{% endfor %}
@@ -172,9 +176,9 @@
     {% for c in comments %}
       <div class="comment"><span class="av av-{{ c.role }}">{{ c.actor[0] }}</span><div><b>{{ c.actor }}</b> <span class="muted small">{{ roles[c.role].label if c.role in roles else c.role }} · {{ c.created_at | when }}</span><p>{{ c.body }}</p></div></div>
     {% else %}<p class="muted">No comments yet.</p>{% endfor %}
-    <form class="form comment-form" method="post" action="/drafts/{{ draft.id }}/comments">
+    <form class="form comment-form" method="post" action="/drafts/{{ draft.id }}/comments" data-once>
       <label class="sr" for="cbody">Add a comment</label>
-      <textarea id="cbody" name="body" rows="2" maxlength="2000" placeholder="Add a comment as {{ persona.name }}"></textarea>
+      <textarea id="cbody" name="body" rows="2" maxlength="2000" required placeholder="Add a comment as {{ persona.name }}"></textarea>
       <button class="btn btn-small" type="submit">Comment</button>
     </form>
   </div>

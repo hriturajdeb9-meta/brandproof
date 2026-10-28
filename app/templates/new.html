@@ -4,18 +4,19 @@
 <div class="page-head">
   <a class="back" href="/">← Drafts</a>
   <h1>New draft</h1>
-  <p class="lead">Paste text, upload a Word document or an image (or text and an image together, like a social post). Brandproof checks it in about 10–20 seconds.</p>
+  <p class="lead">Paste text, upload a PDF or Word document, or an image (or text and an image together, like a social post). The check runs in the background and usually takes 5–20 seconds.</p>
 </div>
 {% if role == 'reviewer' %}
-<div class="flash error">Reviewers don't create drafts. Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right.</div>
+<div class="flash error">Reviewers don't create drafts.{% if is_demo %} Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right.{% endif %}</div>
 {% endif %}
-<form class="card form" method="post" action="/drafts" enctype="multipart/form-data" data-busy="Checking your draft… (about 10–20 seconds)">
+<form class="card form" method="post" action="/drafts" enctype="multipart/form-data" data-once>
+  <input type="hidden" name="token" value="{{ token }}">
   <div class="grid-2">
     <label>Title
       <input name="title" required maxlength="140" placeholder="e.g. Instagram: Diwali savings post">
     </label>
     <label>Channel
-      <select name="channel">{% for c in channels %}<option>{{ c }}</option>{% endfor %}</select>
+      <select name="channel">{% for ch in channels %}<option>{{ ch }}</option>{% endfor %}</select>
     </label>
   </div>
   <label>What is this piece for? <span class="hint">One line. Suggested fixes keep this goal.</span>
@@ -27,13 +28,13 @@
   <fieldset>
     <legend>Content</legend>
     <label>Text
-      <textarea name="body" rows="7" maxlength="8000" placeholder="Paste the caption, email or article text here"></textarea>
+      <textarea name="body" rows="7" maxlength="12000" placeholder="Paste the caption, email or article text here"></textarea>
     </label>
     <div class="grid-2">
-      <label>…or a Word document (.docx) <span class="hint">Replaces the text box.</span>
-        <input type="file" name="docx" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <label>…or a document (PDF or Word) <span class="hint">Replaces the text box. PDF findings show their page.</span>
+        <input type="file" name="doc" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
       </label>
-      <label>Image (PNG, JPG or WebP) <span class="hint">Banners and social graphics, up to 6 MB.</span>
+      <label>Image (PNG, JPG or WebP) <span class="hint">Banners and social graphics, up to 8 MB.</span>
         <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
       </label>
     </div>
@@ -41,11 +42,13 @@
       <input name="alt" maxlength="500" placeholder="Describe the image and any text in it">
     </label>
   </fieldset>
+  <p class="small muted">Personal data (emails, phone numbers, ID and card numbers) and your confidential terms are masked before any text is sent to the AI.</p>
   <div class="form-foot">
     <button class="btn btn-primary btn-big" type="submit" {% if role == 'reviewer' %}disabled{% endif %}>Check draft</button>
-    <span class="small muted">Sample files to try: <a href="/static/samples/paisaleaf-newsletter.docx" download>newsletter.docx</a> ·
+    {% if is_demo %}<span class="small muted">Sample files to try: <a href="/static/samples/paisaleaf-newsletter.docx" download>newsletter.docx</a> ·
+      <a href="/static/samples/paisaleaf-brochure.pdf" download>brochure.pdf</a> ·
       <a href="/static/samples/paisaleaf-banner.png" download>banner.png</a> ·
-      <a href="/static/samples/paisaleaf-banner-fixed.png" download>banner-fixed.png</a></span>
+      <a href="/static/samples/paisaleaf-banner-fixed.png" download>banner-fixed.png</a></span>{% endif %}
   </div>
 </form>
 {% endblock %}

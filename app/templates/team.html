@@ -3,47 +3,86 @@
 {% block content %}
 <div class="page-head">
   <h1>Team</h1>
-  <p class="lead">The three people in this demo workspace. Everyone can switch between them at the top right, so judges can try every role without signing in. The brand manager can rename them and change their titles here.</p>
+  {% if is_demo %}
+  <p class="lead">The people in this public demo workspace. Anyone can switch between Priya, Meera and Arjun at the top right; their permissions are enforced exactly like real accounts{% if rls %}, by the database itself{% endif %}. The brand manager can rename them here.</p>
+  {% else %}
+  <p class="lead">Who can do what in <b>{{ c.ws_name }}</b>. Roles are checked on every action{% if rls %}, by the app and again by the database's row-level security{% endif %}.</p>
+  {% endif %}
 </div>
 
 <section class="card">
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Role</th><th>Name</th><th>Title</th><th>What they can do</th></tr></thead>
+    <thead><tr><th>Person</th><th>Role</th><th>Title</th><th>What they can do</th>{% if role == 'brand' and not is_demo %}<th></th>{% endif %}</tr></thead>
     <tbody>
-    {% for k in role_keys %}{% set r = roles[k] %}
+    {% for m in members %}
       <tr>
-        <td><span class="av av-{{ k }}">{{ r.name[0] }}</span> <span class="muted small">{{ {'creator': 'Creator', 'reviewer': 'Reviewer', 'brand': 'Brand manager'}[k] }}</span></td>
-        <td><b>{{ r.name }}</b></td>
-        <td>{{ r.label }}</td>
-        <td class="small">{{ r.about }}</td>
+        <td><span class="av av-{{ m.role }}">{{ (m.name or m.email)[0] | upper }}</span> <b>{{ m.name or '(not signed up yet)' }}</b>{% if not is_demo %}<div class="small muted">{{ m.email }}</div>{% endif %}</td>
+        <td>{{ ROLES[m.role].label }}</td>
+        <td>{{ m.title }}</td>
+        <td class="small">{{ ROLES[m.role].can }}</td>
+        {% if role == 'brand' and not is_demo %}
+        <td>
+          <details class="inline"><summary class="btn btn-small">Change</summary>
+            <form method="post" action="/team" class="mini-form" data-once>
+              <input type="hidden" name="action" value="update"><input type="hidden" name="member" value="{{ m.id }}">
+              <label>Role<select name="role">{% for k, r in ROLES.items() %}<option value="{{ k }}" {% if k == m.role %}selected{% endif %}>{{ r.label }}</option>{% endfor %}</select></label>
+              <label>Title<input name="title" maxlength="40" value="{{ m.title or '' }}"></label>
+              <button class="btn btn-small btn-primary" type="submit">Save</button>
+            </form>
+          </details>
+          {% if m.user_id != c.uid %}
+          <form method="post" action="/team" data-confirm="Remove {{ m.name or m.email }} from this workspace?" class="inline-form">
+            <input type="hidden" name="action" value="remove"><input type="hidden" name="member" value="{{ m.id }}">
+            <button class="btn btn-small btn-danger" type="submit">Remove</button>
+          </form>
+          {% endif %}
+        </td>
+        {% endif %}
       </tr>
     {% endfor %}
     </tbody>
   </table></div>
 </section>
 
-{% if role == 'brand' %}
+{% if role == 'brand' and is_demo %}
 <section class="card">
-  <h2>Rename people</h2>
+  <h2>Rename the demo people</h2>
   <form class="form" method="post" action="/team">
-    {% for k in role_keys %}{% set r = roles[k] %}
+    {% for k, p in demo_people.items() %}{% set r = roles[k] %}
     <div class="grid-2">
-      <label>{{ {'creator': 'Creator', 'reviewer': 'Reviewer', 'brand': 'Brand manager'}[k] }}: name
-        <input name="{{ k }}_name" required maxlength="40" value="{{ r.name }}">
-      </label>
-      <label>Title <span class="hint">shown under the name</span>
-        <input name="{{ k }}_label" required maxlength="40" value="{{ r.label }}">
-      </label>
+      <label>{{ ROLES[k].label }}: name<input name="{{ k }}_name" required maxlength="40" value="{{ r.name }}"></label>
+      <label>Title <span class="hint">shown under the name</span><input name="{{ k }}_label" required maxlength="40" value="{{ r.label }}"></label>
     </div>
     {% endfor %}
     <div class="row-actions">
       <button class="btn btn-primary" type="submit">Save names</button>
-      <button class="btn" type="submit" name="reset" value="1" formnovalidate>Reset to {{ defaults.creator.name }}, {{ defaults.reviewer.name }} and {{ defaults.brand.name }}</button>
+      <button class="btn" type="submit" name="reset" value="1" formnovalidate>Reset to Priya, Meera and Arjun</button>
     </div>
-    <p class="small muted">The permissions stay the same: the creator writes and fixes drafts, the reviewer approves, and the brand manager edits the Brand Kit. Names already recorded on old drafts and in the audit log don't change.</p>
+    <p class="small muted">Permissions stay the same. Names already recorded on old drafts and in the audit log don't change.</p>
   </form>
 </section>
-{% else %}
+<section class="card">
+  <h2>Restore the demo Brand Kit</h2>
+  <p class="small">Everyone shares this demo. If someone changed or deleted the demo rules, facts or colours, put them back. Drafts are not touched.</p>
+  <form method="post" action="/kit/restore-demo" data-confirm="Restore the original demo rules, facts and colours?"><button class="btn" type="submit">Restore demo Brand Kit</button></form>
+</section>
+{% elif role == 'brand' %}
+<section class="card">
+  <h2>Add a person</h2>
+  <form class="form" method="post" action="/team" data-once>
+    <input type="hidden" name="action" value="invite">
+    <div class="grid-3">
+      <label>Email<input type="email" name="email" required maxlength="254"></label>
+      <label>Role<select name="role">{% for k, r in ROLES.items() %}<option value="{{ k }}">{{ r.label }}</option>{% endfor %}</select></label>
+      <label>Title <span class="hint">optional</span><input name="title" maxlength="40" placeholder="e.g. Social media lead"></label>
+    </div>
+    <button class="btn btn-primary" type="submit">Add to workspace</button>
+    <p class="small muted">No email is sent. Tell them to create a free account with this address (or sign in); they join this workspace automatically.</p>
+  </form>
+</section>
+{% elif is_demo %}
 <div class="banner info">To rename people, switch to <b>{{ roles.brand.name }} ({{ roles.brand.label }})</b> at the top right.</div>
+{% else %}
+<div class="banner info">Only a brand manager can add people or change roles.</div>
 {% endif %}
 {% endblock %}

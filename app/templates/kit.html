@@ -4,23 +4,25 @@
 <div class="page-head">
   <h1>Brand Kit</h1>
   <p class="lead">Everything Brandproof checks against. Rules come from the brand guidelines, facts come with evidence and an expiry date. Changes apply to the next check.</p>
-  {% if role != 'brand' %}<div class="banner info">Read-only. Switch to <b>{{ roles.brand.name }} ({{ roles.brand.label }})</b> at the top right to add or edit rules, facts and colours.</div>{% endif %}
+  {% if role != 'brand' %}<div class="banner info">Read-only.{% if is_demo %} Switch to <b>{{ roles.brand.name }} ({{ roles.brand.label }})</b> at the top right to add or edit rules, facts and colours.{% else %} Only a brand manager can change the Brand Kit.{% endif %}</div>
+  {% else %}<div class="row-actions"><a class="btn btn-primary btn-small" href="/guidelines">Import rules from a guideline (PDF / Word)</a>{% if pending %}<a class="btn btn-small" href="/guidelines">{{ pending }} drafted rule{{ 's' if pending != 1 }} waiting for approval</a>{% endif %}</div>{% endif %}
 </div>
 <nav class="kit-tabs" aria-label="Brand Kit sections">
   <a href="/kit?tab=rules" {% if tab == 'rules' %}aria-current="page"{% endif %}>Rules ({{ rows.rules | length }})</a>
   <a href="/kit?tab=glossary" {% if tab == 'glossary' %}aria-current="page"{% endif %}>Glossary ({{ rows.glossary | length }})</a>
   <a href="/kit?tab=facts" {% if tab == 'facts' %}aria-current="page"{% endif %}>Claim Ledger ({{ rows.facts | length }})</a>
   <a href="/kit?tab=palette" {% if tab == 'palette' %}aria-current="page"{% endif %}>Palette ({{ rows.palette | length }})</a>
+  <a href="/kit?tab=confidential" {% if tab == 'confidential' %}aria-current="page"{% endif %}>Confidential terms ({{ rows.confidential | length }})</a>
   <span class="muted small kit-ver">kit version {{ kit_hash }}</span>
 </nav>
 
 {% if tab == 'rules' %}
 <section class="card">
   <div class="table-wrap"><table class="table rules-table">
-    <thead><tr><th>ID</th><th>Rule</th><th>Dimension</th><th>Severity</th><th>How it's checked</th><th>Source</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <thead><tr><th>ID</th><th>Rule</th><th>Dimension</th><th>Severity</th><th>How it's checked</th><th>Source</th><th>Version &amp; tests</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
     <tbody>{% for r in rows.rules %}
       <tr id="r-{{ r.id }}" {% if not r.active %}class="inactive"{% endif %}>
-        <td><b>{{ r.id }}</b></td>
+        <td><a href="/kit/rules/{{ r.id }}"><b>{{ r.id }}</b></a>{% if r.built_in %}<div class="small muted" title="A built-in code check uses this rule">built-in: {{ r.built_in }}</div>{% endif %}</td>
         <td><b>{{ r.title }}</b>{% if r.description %}<div class="small">{{ r.description }}</div>{% endif %}
           <div class="small"><span class="ok-text">Do:</span> {{ r.do_example }} · <span class="bad-text">Don't:</span> {{ r.dont_example }}</div>
           {% if r.pattern %}<div class="small muted mono">pattern: {{ r.pattern }}</div>{% endif %}</td>
@@ -28,6 +30,8 @@
         <td><span class="tag sev-{{ r.severity }}">{{ r.severity }}</span></td>
         <td>{% if r.method == 'code' %}Code{% elif r.method == 'ai' %}AI (verified){% else %}Code + AI{% endif %}{% if not r.active %}<div class="tag">inactive</div>{% endif %}</td>
         <td class="small">{{ r.source }}</td>
+        <td class="small"><a href="/kit/rules/{{ r.id }}">v{{ r.version or 1 }}</a>
+          {% if r.tests %}{% if r.tests.status == 'pass' %}<span class="tag ok">tests pass</span>{% elif r.tests.status == 'fail' %}<span class="tag sev-blocker">test fails</span>{% elif r.tests.status == 'needs-ai' %}<span class="tag">needs AI test</span>{% else %}<span class="tag">n/a</span>{% endif %}{% else %}<span class="tag">not tested</span>{% endif %}</td>
         {% if role == 'brand' %}<td><a class="btn btn-small" href="/kit?tab=rules&edit={{ r.id }}#form">Edit</a></td>{% endif %}
       </tr>{% endfor %}</tbody>
   </table></div>
@@ -61,19 +65,31 @@
     <div class="chip"><span class="chip-sw" style="background: {{ p.hex }}"></span><b>{{ p.name }}</b><span class="mono small">{{ p.hex }}</span>
       {% if role == 'brand' %}<a class="small" href="/kit?tab=palette&edit={{ p.id }}#form">Edit</a>{% endif %}</div>{% endfor %}
   </div>
-  <p class="small muted">Image colours further than ΔE 10 (CIEDE2000) from every palette colour are flagged. The required disclaimer is: “{{ disclaimer }}”</p>
+  <p class="small muted">Image colours further than ΔE 10 (CIEDE2000) from every palette colour are flagged.{% if disclaimer %} The required disclaimer is: “{{ disclaimer }}”{% endif %}</p>
+  {% if not rows.palette %}<p class="empty">No colours yet. Add them below, or import your guideline: colour codes in it are picked up automatically.</p>{% endif %}
+</section>
+{% elif tab == 'confidential' %}
+<section class="card">
+  <p class="small">Codenames, unreleased products, client names: anything that must never be published. These terms are <b>masked before any AI call</b> (with emails, phone numbers and ID numbers), and a draft that contains one gets a blocker (rule R-CNF-01).</p>
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Term</th><th>Why it's confidential</th>{% if role == 'brand' %}<th></th>{% endif %}</tr></thead>
+    <tbody>{% for t in rows.confidential %}<tr><td><b>{{ t.term }}</b></td><td class="small">{{ t.note }}</td>
+      {% if role == 'brand' %}<td><a class="btn btn-small" href="/kit?tab=confidential&edit={{ t.id }}#form">Edit</a></td>{% endif %}</tr>
+    {% else %}<tr><td colspan="3" class="empty">No confidential terms yet.</td></tr>{% endfor %}</tbody>
+  </table></div>
 </section>
 {% endif %}
 
 {% if role == 'brand' %}
 <section class="card" id="form">
-  <h2>{% if editing %}Edit{% else %}Add{% endif %} {{ {'rules': 'rule', 'glossary': 'glossary entry', 'facts': 'fact', 'palette': 'colour'}[tab] }}</h2>
-  <form class="form" method="post" action="/kit/{{ tab }}/save">
-    {% if editing and tab in ('glossary', 'palette') %}<input type="hidden" name="row_id" value="{{ editing.id }}">{% endif %}
+  <h2>{% if editing %}Edit{% else %}Add{% endif %} {{ {'rules': 'rule', 'glossary': 'glossary entry', 'facts': 'fact', 'palette': 'colour', 'confidential': 'confidential term'}[tab] }}</h2>
+  <form class="form" method="post" action="/kit/{{ tab }}/save" data-once>
+    {% if editing and tab in ('glossary', 'palette', 'confidential') %}<input type="hidden" name="row_id" value="{{ editing.id }}">{% endif %}
+    {% if tab == 'rules' and not editing %}<input type="hidden" name="is_new" value="1">{% endif %}
     {% set e = editing or {} %}
     {% if tab == 'rules' %}
       <div class="grid-3">
-        <label>Rule ID<input name="id" required value="{{ e.id or '' }}" placeholder="R-TON-05" {% if editing %}readonly{% endif %}></label>
+        <label>Rule ID<input name="id" required value="{{ e.id or next_rule_id }}" placeholder="R-TON-05" pattern="[Rr]-[A-Za-z0-9-]{3,20}" {% if editing %}readonly{% endif %}></label>
         <label>Dimension<select name="dimension">{% for d in DIMENSIONS %}<option value="{{ d }}" {% if e.dimension == d %}selected{% endif %}>{{ DIMENSION_LABELS[d] }}</option>{% endfor %}</select></label>
         <label>Severity<select name="severity">{% for s in ['blocker','major','minor'] %}<option {% if e.severity == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
       </div>
@@ -124,10 +140,16 @@
         <label>Name<input name="name" required value="{{ e.name or '' }}"></label>
         <label>Hex<input name="hex" required value="{{ e.hex or '' }}" placeholder="#11734F"></label>
       </div>
+    {% elif tab == 'confidential' %}
+      <div class="grid-2">
+        <label>Term<input name="term" required maxlength="80" value="{{ e.term or '' }}" placeholder="e.g. Project Neem"></label>
+        <label>Why it's confidential <span class="hint">optional</span><input name="note" maxlength="200" value="{{ e.note or '' }}"></label>
+      </div>
     {% endif %}
     <div class="row-actions">
       <button class="btn btn-primary" type="submit">Save</button>
       {% if editing %}<a class="btn" href="/kit?tab={{ tab }}">Cancel</a>{% endif %}
+      {% if tab == 'rules' %}<span class="small muted">Each save creates a new version; code rules are tested with their examples straight away.</span>{% endif %}
     </div>
   </form>
   {% if editing %}

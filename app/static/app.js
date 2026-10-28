@@ -15,6 +15,33 @@
     });
   });
 
+  // Stop double submits: the first click sends the form, later clicks are ignored (the server is idempotent too).
+  document.querySelectorAll("form[data-once]").forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      if (form.dataset.sent) { e.preventDefault(); return; }
+      form.dataset.sent = "1";
+      setTimeout(function () {
+        form.querySelectorAll("button[type=submit], button:not([type])").forEach(function (b) { b.classList.add("busy"); b.setAttribute("aria-busy", "true"); });
+      }, 0);
+      // allow a retry if the page is still here after 20 s (for example the network dropped)
+      setTimeout(function () { delete form.dataset.sent; form.querySelectorAll(".busy").forEach(function (b) { b.classList.remove("busy"); }); }, 20000);
+    });
+  });
+
+  // Checking pages: poll the status and reload as soon as the result is ready.
+  var poll = document.querySelector("[data-poll]");
+  if (poll && window.fetch) {
+    var tries = 0;
+    var tick = function () {
+      tries += 1;
+      fetch(poll.dataset.poll, { credentials: "same-origin", cache: "no-store" }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.state && j.state !== "checking" && j.state !== "reading") { location.reload(); }
+        else if (tries < 150) { setTimeout(tick, 1500); }
+      }).catch(function () { if (tries < 150) setTimeout(tick, 3000); });
+    };
+    setTimeout(tick, 1200);
+  }
+
   // Confirm destructive actions.
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {

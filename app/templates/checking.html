@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Checking {{ draft.title }}{% endblock %}
+{% block head %}{% if version.state == "checking" %}<noscript><meta http-equiv="refresh" content="4"></noscript>{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="back" href="/">← Drafts</a>
+  <h1>{{ draft.title }}</h1>
+  <p class="muted">{{ draft.channel }} · by {{ draft.created_by }} · version {{ n }}</p>
+</div>
+{% if version.state == 'checking' %}
+<section class="card checking" data-poll="/drafts/{{ draft.id }}/status" aria-live="polite">
+  <div class="spinner"></div>
+  <h2>Checking version {{ n }}…</h2>
+  <p>Code checks run first. AI looks for claims, reviews the tone{% if version.image %} and reads the image{% endif %} in parallel, then code verifies every AI answer. Serious AI findings get a second opinion.</p>
+  <p class="small muted">This usually takes 5–20 seconds. You can leave this page; the check keeps running and the result is saved. This page refreshes by itself.</p>
+  <p><a class="btn btn-small" href="/drafts/{{ draft.id }}">Refresh now</a></p>
+</section>
+{% else %}
+<section class="card error-card">
+  <h2>The check didn't finish</h2>
+  <p>Something went wrong while checking version {{ n }} ({{ version.error or 'unknown error' }}). Your draft is saved; nothing was lost.</p>
+  {% if role in ('creator', 'brand') %}
+  <form method="post" action="/drafts/{{ draft.id }}/retry" data-once><button class="btn btn-primary" type="submit">Try the check again</button></form>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

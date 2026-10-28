@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}{{ g.name }}{% endblock %}
+{% block head %}{% if g.state == 'reading' %}<noscript><meta http-equiv="refresh" content="5"></noscript>{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a class="back" href="/guidelines">← Imports</a>
+  <h1>{{ g.name }}</h1>
+  <p class="muted">{{ g.page_count }} page{{ 's' if g.page_count != 1 }} · uploaded by {{ g.created_by }} · {{ g.created_at | when }}</p>
+</div>
+
+{% if g.state == 'reading' %}
+<section class="card checking" data-poll="/guidelines/{{ g.id }}/status" aria-live="polite">
+  <div class="spinner"></div>
+  <h2>Reading the guideline…</h2>
+  <p>The AI is drafting rules from each part of the document, and code is checking every quoted sentence against its page. A 10-page guideline takes about 20–60 seconds. You can leave this page.</p>
+</section>
+{% elif g.state == 'failed' %}
+<section class="card error-card"><h2>The import didn't finish</h2><p>{{ g.error }}</p><p><a class="btn" href="/guidelines">Try uploading again</a></p></section>
+{% else %}
+<section class="card">
+  <div class="stats-row">
+    <div><b>{{ cands | length }}</b><span>items drafted</span></div>
+    <div><b>{{ stats.verified or 0 }}</b><span>quotes found on their page</span></div>
+    <div><b>{{ stats.not_found or 0 }}</b><span>quotes not found</span></div>
+    <div><b>{{ stats.duplicates or 0 }}</b><span>look like existing rules</span></div>
+    <div><b>{{ pending }}</b><span>waiting for you</span></div>
+  </div>
+  <p class="small muted">{% if stats.mode == 'patterns' %}The AI was unavailable ({{ stats.last_error or 'no answer' }}), so rules were found with simple sentence patterns. Check each one carefully.{% else %}Drafted by {{ stats.models | join(', ') }} from {{ stats.chunks }} part{{ 's' if stats.chunks != 1 }} of the document{% if stats.ai_calls_failed %} ({{ stats.ai_calls_failed }} part{{ 's' if stats.ai_calls_failed != 1 }} failed: re-upload to retry){% endif %}.{% endif %}{% if stats.truncated %} Only the first part of a very long document was read.{% endif %}</p>
+  {% if verified_pending %}
+  <form method="post" action="/guidelines/{{ g.id }}/decide" data-confirm="Approve all {{ verified_pending }} items whose quote was found in the document?" data-once>
+    <input type="hidden" name="decision" value="approve_verified">
+    <button class="btn btn-primary" type="submit">Approve all {{ verified_pending }} verified items</button>
+    <span class="small muted">You can still edit or delete any rule afterwards; each change is versioned.</span>
+  </form>
+  {% endif %}
+</section>
+
+{% for x in cands %}{% set d = x.data_obj %}
+<article class="card cand cand-{{ x.status }}" id="c-{{ x.id }}">
+  <div class="fc-top">
+    <span class="tag">{{ {'rule': 'Rule', 'glossary': 'Glossary', 'palette': 'Colour'}[x.kind] }}</span>
+    {% if x.kind == 'rule' %}<span class="tag dim">{{ DIMENSION_LABELS.get(d.dimension, d.dimension) }}</span><span class="tag sev-{{ d.severity }}">{{ d.severity }}</span>
+      <span class="tag {% if d.method == 'code' %}m-code{% else %}m-ai{% endif %}">{{ 'Code (banned words)' if d.method == 'code' else 'Judged by AI' }}</span>{% endif %}
+    {% if x.page %}<span class="tag where">Page {{ x.page }}</span>{% endif %}
+    {% if x.verified %}<span class="tag ok">✓ quote found in document</span>{% else %}<span class="tag sev-major">quote not found</span>{% endif %}
+    {% if x.status != 'pending' %}<span class="tag {% if x.status == 'approved' %}ok{% endif %}">{{ x.status }}{% if x.result_id %}: {{ x.result_id }}{% endif %}</span>{% endif %}
+  </div>
+  {% if x.kind == 'rule' %}<h3>{{ d.title }}</h3><p class="small">{{ d.description }}</p>
+  {% elif x.kind == 'glossary' %}<h3>Use “{{ d.preferred }}”, not {{ d.avoid }}</h3>
+  {% else %}<h3><span class="swatch" style="background: {{ d.hex }}"></span>{{ d.name }} {{ d.hex }}</h3>{% endif %}
+  {% if x.quote %}<blockquote class="src-quote">“{{ x.quote }}”</blockquote>{% endif %}
+  {% if x.context and x.kind == 'rule' %}<details class="small"><summary>Show it in context (page {{ x.page }})</summary><p class="muted">…{{ x.context }}…</p></details>{% endif %}
+  {% if x.verify_note %}<p class="note">{{ x.verify_note }}</p>{% endif %}
+  {% if x.status == 'pending' %}
+  <details class="inline-edit" {% if not x.verified %}open{% endif %}>
+    <summary class="btn btn-small">Edit before approving</summary>
+    <form class="form mini-form" method="post" action="/guidelines/{{ g.id }}/decide" id="f-{{ x.id }}">
+      <input type="hidden" name="cid" value="{{ x.id }}">
+      {% if x.kind == 'rule' %}
+      <div class="grid-3">
+        <label>Dimension<select name="dimension">{% for dm in DIMENSIONS %}<option value="{{ dm }}" {% if d.dimension == dm %}selected{% endif %}>{{ DIMENSION_LABELS[dm] }}</option>{% endfor %}</select></label>
+        <label>Severity<select name="severity">{% for sv in ['blocker','major','minor'] %}<option {% if d.severity == sv %}selected{% endif %}>{{ sv }}</option>{% endfor %}</select></label>
+        <label>Checked by<select name="method"><option value="ai" {% if d.method == 'ai' %}selected{% endif %}>AI (verified)</option><option value="code" {% if d.method == 'code' %}selected{% endif %}>Code (pattern)</option></select></label>
+      </div>
+      <label>Title<input name="title" value="{{ d.title }}" maxlength="200"></label>
+      <label>Description<textarea name="description" rows="2" maxlength="1000">{{ d.description }}</textarea></label>
+      <div class="grid-2"><label>Do example<input name="do_example" value="{{ d.do_example }}"></label><label>Don't example<input name="dont_example" value="{{ d.dont_example }}"></label></div>
+      <label>Pattern <span class="hint">for code rules; built from the banned words</span><input name="pattern" class="mono" value="{{ d.pattern }}"></label>
+      {% elif x.kind == 'glossary' %}
+      <div class="grid-2"><label>Use<input name="preferred" value="{{ d.preferred }}"></label><label>Instead of <span class="hint">comma-separated</span><input name="avoid" value="{{ d.avoid }}"></label></div>
+      {% else %}
+      <div class="grid-2"><label>Name<input name="name" value="{{ d.name }}"></label><label>Hex<input name="hex" value="{{ d.hex }}"></label></div>
+      {% endif %}
+    </form>
+  </details>
+  <div class="row-actions">
+    <button class="btn btn-small btn-primary" type="submit" form="f-{{ x.id }}" name="decision" value="approve">Approve</button>
+    <button class="btn btn-small" type="submit" form="f-{{ x.id }}" name="decision" value="discard" formnovalidate>Discard</button>
+  </div>
+  {% endif %}
+</article>
+{% else %}
+<p class="empty">No rules were found in this document. Is it a brand guideline with requirements in it?</p>
+{% endfor %}
+{% endif %}
+{% endblock %}

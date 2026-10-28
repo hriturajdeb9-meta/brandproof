@@ -9,32 +9,42 @@
 <section class="card">
   <h2>The check, step by step</h2>
   <ol class="pipeline">
-    <li><b>Read.</b> Text is taken from the text box or a .docx file. Images are resized and their colours measured. AI reads the words inside the image and where they are.</li>
+    <li><b>Read.</b> Text is taken from the text box, a Word file or a PDF (page by page). Images are resized and their colours measured. AI reads the words inside the image and where they are. Personal data and confidential terms are masked before anything goes to the AI.</li>
     <li><b>Code checks.</b> Glossary terms, banned phrases, required disclaimers, all-caps and hype emoji, readability, link text, inclusive language, image colours against the palette (CIEDE2000 distance) and text contrast (WCAG formula).</li>
     <li><b>AI checks.</b> The AI finds claims and says which ledger fact each one is about, and reviews tone against the tone rules and their examples. It must quote the draft exactly and answer in strict JSON.</li>
     <li><b>Verify.</b> Code throws away any AI finding whose quote isn't really in the draft or whose rule doesn't exist. <b>Code, not AI, decides claim verdicts</b> by comparing numbers and expiry dates with the Claim Ledger. AI rewrites are shown only if they keep locked phrases, use only ledger numbers and make no prohibited promises.</li>
     <li><b>Explain.</b> Every finding shows its rule, source, method (code or AI), confidence and a fix. Nothing changes until a person accepts it.</li>
+    <li><b>Second opinion.</b> Blocker and major findings that depended on the AI are re-judged by a different model. If it disagrees or is unsure, the finding is marked "needs human judgment" and the draft goes to a reviewer.</li>
     <li><b>Route.</b> Drafts with claims, rejected serious findings, open major findings or AI uncertainty go to a reviewer. Everything else is cleared automatically, and that is logged too.</li>
   </ol>
 </section>
 
 <section class="card" id="ai">
-  <h2>AI disclosure</h2>
+  <h2>AI disclosure and model settings</h2>
+  <p class="small">Each AI job has its own list of models. The first one that answers wins; a busy, slow or missing model is skipped and rested for a minute, so the next call goes straight to the backup. Models are chosen with server settings (<span class="mono">AI_ROUTE_CLAIMS</span>, <span class="mono">AI_ROUTE_TONE</span>, …), so they can be changed and compared without touching code.</p>
+  <div class="table-wrap"><table class="table small">
+    <thead><tr><th>Job</th><th>Models, in order</th><th>Set by</th></tr></thead>
+    <tbody>{% for j in jobs %}
+      <tr><td><b>{{ j.name }}</b><div class="muted mono">{{ j.job }}</div></td>
+        <td>{% for st in j.steps %}<span class="tag {% if st.available %}m-aicode{% endif %}" title="{{ 'ready' if st.available else 'no API key set' }}">{{ loop.index }}. {{ st.provider }} · {{ st.model }}{% if not st.available %} (off){% endif %}{% if st.cooling %} (resting){% endif %}</span> {% endfor %}</td>
+        <td class="muted">{{ j.source }}</td></tr>
+    {% endfor %}</tbody>
+  </table></div>
   <div class="table-wrap"><table class="table">
-    <thead><tr><th>Service</th><th>What it does here</th><th>What it receives</th></tr></thead>
-    <tbody>
-      <tr><td><b>{{ ai_label }}</b></td><td>Finds claims, reviews tone against the tone rules, reads text in images and suggests alt text.</td>
-        <td>The draft text (up to 6,000 characters), the goal and locked phrases, the tone rules, the Claim Ledger facts, and uploaded images. Not your name, comments or other drafts.</td></tr>
-      <tr><td><b>No other services</b></td><td>Everything else runs as code on our own server.</td><td>-</td></tr>
-    </tbody>
+    <thead><tr><th>What the AI receives</th><th>What it never receives</th></tr></thead>
+    <tbody><tr>
+      <td class="small">The draft text with personal data and confidential terms masked, the goal and locked phrases, the relevant rules and Claim Ledger facts, uploaded images, and imported guideline pages.</td>
+      <td class="small">Your name, email or password, comments, other drafts, the audit log, or anything from another workspace.</td>
+    </tr></tbody>
   </table></div>
   <ul class="tight small">
-    <li>The AI never publishes, approves or changes content. Every fix needs a person to accept it.</li>
-    <li>Each finding is labelled <b>Code check</b>, <b>AI, verified by code</b> or <b>AI-assessed</b>, with its confidence.</li>
+    <li>The AI never publishes, approves or changes content. Every fix and every approval needs a person.</li>
+    <li>Each finding is labelled <b>Code check</b>, <b>AI, verified by code</b> or <b>AI-assessed</b>, with its confidence. Serious AI findings get a <b>second opinion</b> from a different model; if it doesn't agree, a person decides.</li>
     <li>AI answers are cached by a hash of the input, so the same draft gives the same report and the free quota lasts longer.</li>
-    <li>If the AI is down or not configured, Brandproof still runs every code check and says clearly what was skipped.</li>
+    <li>If every AI model is down, Brandproof still runs every code check and says clearly what was skipped.</li>
   </ul>
-  <p class="small muted">AI calls so far: {{ calls.n or 0 }} · succeeded: {{ calls.ok or 0 }} · served from cache: {{ calls.cached or 0 }}{% if calls.ms %} · average {{ (calls.ms / 1000) | round(1) }} s{% endif %}</p>
+  <p class="small muted">AI calls so far (not counting cache hits): {{ calls.n or 0 }} · succeeded: {{ calls.ok or 0 }}{% if calls.ms %} · average {{ (calls.ms / 1000) | round(1) }} s{% endif %}</p>
+  {% if by_model %}<details class="small"><summary>By model</summary><table class="table small"><thead><tr><th>Model</th><th>Calls</th><th>Succeeded</th><th>Average time</th></tr></thead><tbody>{% for m in by_model %}<tr><td>{{ m.provider }} · {{ m.model }}</td><td>{{ m.n }}</td><td>{{ m.ok or 0 }}</td><td>{{ ((m.ms or 0) / 1000) | round(1) }} s</td></tr>{% endfor %}</tbody></table></details>{% endif %}
   {% if recent_errors %}<details class="small"><summary>Recent AI errors ({{ recent_errors | length }})</summary><ul>{% for e in recent_errors %}<li>{{ e.created_at | when }} · {{ e.purpose }}: {{ e.error }}</li>{% endfor %}</ul></details>{% endif %}
 </section>
 
@@ -55,18 +65,20 @@
 {% endif %}
 
 <section class="card" id="data">
-  <h2>Data and privacy</h2>
+  <h2>Data, privacy and access</h2>
   <ul class="tight">
-    <li><b>Demo data only.</b> Paisaleaf, its rules, facts and sample drafts are fictional. Please don't upload confidential material to this demo.</li>
-    <li><b>Minimum data to the AI.</b> Only the draft being checked and the relevant rules and facts are sent, never the whole Brand Kit or other drafts.</li>
-    <li><b>Storage.</b> Drafts, versions, decisions, comments and the audit log are stored in {{ 'PostgreSQL' if storage == 'postgres' else 'SQLite' }} on our server. Images are re-encoded (which strips camera metadata) before they are stored.</li>
-    <li><b>Roles.</b> This demo has no sign-in so judges can try every role. Each action is still recorded against the role that did it.</li>
-    <li><b>Coming in Round 3:</b> personal data (emails, phone numbers) and confidential terms removed before any AI call, and serious AI findings double-checked.</li>
+    <li><b>Workspaces.</b> Each brand's rules, drafts, team and audit log live in its own workspace. {{ rls_note }}</li>
+    <li><b>Roles.</b> Creators write and fix drafts; reviewers approve; brand managers own the Brand Kit and the team. The audit log is append-only: nobody can edit or delete it.</li>
+    <li><b>Sign-in.</b> {{ auth_mode | capitalize }}. Sessions are signed cookies (HttpOnly, SameSite). The public demo workspace needs no account.</li>
+    <li><b>Masking before AI.</b> Emails, phone numbers, Aadhaar, PAN and card numbers, and the workspace's confidential terms are replaced with placeholders like <span class="mono">[EMAIL-1]</span> before any text goes to an AI provider, and put back afterwards. Detection is done by code. Images can't be masked, so don't upload images that show personal data.</li>
+    <li><b>Never published.</b> A draft containing a confidential term or an ID/card number gets a blocker, so it can't be submitted until it's fixed or a reviewer accepts a written reason.</li>
+    <li><b>Storage.</b> {{ 'PostgreSQL' if storage == 'postgres' else 'SQLite' }}. Images are re-encoded (which strips camera metadata) before they are stored.</li>
+    <li><b>Demo data.</b> Paisaleaf, its rules, facts and sample drafts are fictional. The demo is shared by everyone, so don't upload confidential material to it.</li>
   </ul>
 </section>
 
 <section class="card">
   <h2>About this project</h2>
-  <p>Built by <b>Team DIBBANKUR</b> (Dibbankur Dey, Arnab Roy Acharjee, Hrituraj Deb, Sanarjit Das) for Round 2 of the TechCircuit Hackathon 2026, problem statement: <i>Intelligent brand-governance platform</i>. AI coding assistance was used during development and is disclosed in the repository README.</p>
+  <p>Built by <b>Team DIBBANKUR</b> (Dibbankur Dey, Arnab Roy Acharjee, Hrituraj Deb, Sanarjit Das) for the TechCircuit Hackathon 2026, problem statement: <i>Intelligent brand-governance platform</i>. AI coding assistance was used during development and is disclosed in the repository README.</p>
 </section>
 {% endblock %}

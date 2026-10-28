@@ -2,8 +2,8 @@
 {% block title %}{{ code }}{% endblock %}
 {% block content %}
 <section class="card error-card">
-  <h1>{% if code == 403 %}Switch role to continue{% elif code == 404 %}Not found{% else %}Something went wrong{% endif %}</h1>
+  <h1>{% if code == 403 %}{% if is_demo %}Switch person to continue{% else %}Not allowed{% endif %}{% elif code == 404 %}Not found{% elif code == 409 %}One moment{% elif code in (400, 413) %}Please check your input{% else %}Something went wrong{% endif %}</h1>
   <p class="lead">{{ detail }}</p>
-  <p><a class="btn" href="/">Back to drafts</a></p>
+  <p class="row-actions"><a class="btn" href="/">Back to drafts</a>{% if code == 409 %}<a class="btn" href="javascript:history.back()">Go back</a>{% endif %}</p>
 </section>
 {% endblock %}

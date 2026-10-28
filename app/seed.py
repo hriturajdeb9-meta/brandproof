@@ -5,6 +5,8 @@ it through the Brand Kit screens or CSV import.
 """
 from __future__ import annotations
 
+import json
+
 from .db import Database, now_iso
 
 DISCLAIMER = "*Rates are subject to change. T&Cs apply."
@@ -68,6 +70,14 @@ RULES = [
      f"Any message about rates, returns or interest must include: \"{DISCLAIMER}\"",
      "major", "code", r"\b(returns?|interest|p\.\s?a\.|rates?)\b", f"append: {DISCLAIMER}",
      f"Earn up to 7.10% p.a.* {DISCLAIMER}", "Earn up to 7.10% p.a. (no disclaimer)", "Brand Guidelines v3, §5.4, p. 12"),
+    ("R-CNF-01", "messaging", "No confidential or unannounced names",
+     "Codenames, unreleased products and other terms on the confidential list must never appear in published content.",
+     "blocker", "code", "", "", "Our new card is coming soon.", "Project Neem launches next week!",
+     "Brand Guidelines v3, §5.5, p. 12"),
+    ("R-CNF-02", "messaging", "No personal ID or card numbers",
+     "Published content never contains Aadhaar numbers, PAN, or card numbers, even as examples.",
+     "blocker", "code", "", "", "Your PAN is needed to open an account.", "Example PAN: ABCDE1234F",
+     "Data protection policy DP-2, §3"),
     # ---- visual
     ("R-VIS-01", "visual", "Use only brand palette colours in graphics",
      "Graphics and banners use colours from the approved palette only.",
@@ -137,6 +147,12 @@ FACTS = [
      "Analytics dashboard, 30 Sep 2026", "Growth", "2026-12-31"),
 ]
 
+# confidential terms are masked before any AI call and must never appear in a draft
+CONFIDENTIAL = [
+    ("Project Neem", "Codename of the unreleased Paisaleaf credit card; not public until launch"),
+    ("Paisaleaf Gold", "Planned premium tier; name not announced"),
+]
+
 PALETTE = [
     ("Leaf Green", "#11734F"),
     ("Deep Ink", "#12263F"),
@@ -174,28 +190,99 @@ SAMPLE_EMAIL = {
 }
 
 
-def seed_kit(db: Database) -> bool:
-    """Load the demo brand kit once. Safe to call on every start and from several processes."""
-    if not db.claim_once("kit_seeded"):
-        return False
-    ts = now_iso()
+STARTER_RULE_IDS = ["R-CLM-01", "R-CLM-02", "R-CLM-03", "R-CLM-04", "R-CLM-05", "R-TON-01", "R-TON-02", "R-MSG-01",
+                    "R-CNF-01", "R-CNF-02",
+                    "R-VIS-01", "R-ACC-01", "R-ACC-02", "R-ACC-03", "R-ACC-04", "R-ACC-05"]
+# rule ids that built-in code checks look for (switching such a rule off switches the check off)
+BUILT_IN = {"R-CLM-01": "guarantee words", "R-CLM-02": "numbers vs ledger", "R-CLM-03": "expired facts",
+            "R-CLM-04": "superlatives", "R-CLM-05": "facts need a source", "R-TON-02": "all-caps and hype emoji",
+            "R-VIS-01": "image colours vs palette", "R-ACC-01": "contrast in images", "R-ACC-02": "alt text",
+            "R-ACC-04": "readability", "R-CNF-01": "confidential terms", "R-CNF-02": "personal ID numbers"}
+
+
+def _generic(text: str) -> str:
+    text = (text or "").replace("Paisaleaf Save", "your product").replace("Paisaleaf", "your brand")
+    return text.replace("first-time savers", "your audience")
+
+
+def starter_rules() -> list[tuple]:
+    out = []
     for r in RULES:
+        if r[0] in STARTER_RULE_IDS:
+            rid, dim, title, desc, sev, method, pattern, hint, do, dont, source = r
+            src = "Brandproof starter kit" if source.startswith("Brand Guidelines") else source
+            out.append((rid, dim, _generic(title), _generic(desc), sev, method, pattern, _generic(hint), _generic(do),
+                        _generic(dont), src))
+    return out
+
+
+def seed_kit_rows(db: Database, workspace_id: int, kind: str = "demo", actor: str = "System") -> dict:
+    """Fill a workspace's Brand Kit: 'demo' (Paisaleaf), 'starter' (generic rules) or 'empty'.
+    Runs as whoever is acting (the system, or the workspace's brand manager)."""
+    ts = now_iso()
+    rules = RULES if kind == "demo" else starter_rules() if kind == "starter" else []
+    for r in rules:
         db.execute(
-            """INSERT INTO rules (id, dimension, title, description, severity, method, pattern, fix_hint,
-               do_example, dont_example, source, active, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) ON CONFLICT (id) DO NOTHING""",
-            (*r, ts),
+            """INSERT INTO rules (workspace_id, id, dimension, title, description, severity, method, pattern, fix_hint,
+               do_example, dont_example, source, active, version, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?) ON CONFLICT (workspace_id, id) DO NOTHING""",
+            (workspace_id, *r, ts),
         )
-    for g in GLOSSARY:
-        db.execute("INSERT INTO glossary (preferred, avoid, note, rule_id, updated_at) VALUES (?, ?, ?, ?, ?)", (*g, ts))
-    for f in FACTS:
-        db.execute(
-            """INSERT INTO facts (id, topic, label, statement, value, approved_wording, keywords, evidence, owner,
-               valid_until, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING""",
-            (*f, ts),
-        )
-    for p in PALETTE:
-        db.execute("INSERT INTO palette (name, hex, updated_at) VALUES (?, ?, ?)", (*p, ts))
-    db.set_meta("disclaimer", DISCLAIMER)
-    db.audit("kit.seeded", "System", "system", None, {"rules": len(RULES), "facts": len(FACTS)})
-    return True
+        data = dict(zip(["id", "dimension", "title", "description", "severity", "method", "pattern", "fix_hint",
+                         "do_example", "dont_example", "source"], r), active=1)
+        db.execute("INSERT INTO rule_versions (workspace_id, rule_id, version, data, note, created_by, created_at) "
+                   "VALUES (?, ?, 1, ?, ?, ?, ?)", (workspace_id, r[0], json.dumps(data, ensure_ascii=False),
+                                                    f"Loaded from the {kind} kit", actor, ts))
+    if kind == "demo":
+        for g in GLOSSARY:
+            db.execute("INSERT INTO glossary (workspace_id, preferred, avoid, note, rule_id, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                       (workspace_id, *g, ts))
+        for f in FACTS:
+            db.execute(
+                """INSERT INTO facts (workspace_id, id, topic, label, statement, value, approved_wording, keywords, evidence,
+                   owner, valid_until, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT (workspace_id, id) DO NOTHING""",
+                (workspace_id, *f, ts),
+            )
+        for p in PALETTE:
+            db.execute("INSERT INTO palette (workspace_id, name, hex, updated_at) VALUES (?, ?, ?, ?)", (workspace_id, *p, ts))
+        for term, note in CONFIDENTIAL:
+            db.execute("INSERT INTO confidential (workspace_id, term, note, updated_at) VALUES (?, ?, ?, ?)",
+                       (workspace_id, term, note, ts))
+    db.audit("kit.seeded", actor, "system" if actor == "System" else "brand", None,
+             {"kit": kind, "rules": len(rules)}, workspace_id=workspace_id)
+    return {"rules": len(rules)}
+
+
+def clear_kit_rows(db: Database, workspace_id: int) -> None:
+    for t in ("rules", "rule_versions", "glossary", "facts", "palette", "confidential"):
+        db.execute(f"DELETE FROM {t} WHERE workspace_id = ?", (workspace_id,))
+
+
+def seed_demo(db: Database) -> int:
+    """Create the public demo workspace with its people and Brand Kit (once). Returns its id."""
+    from .auth import demo_workspace_id, ensure_demo_people
+
+    with db.as_system():
+        if db.claim_once("demo_seeded"):
+            ws = db.insert("INSERT INTO workspaces (name, is_demo, disclaimer, created_at) VALUES (?, 1, ?, ?) RETURNING id",
+                           ("Paisaleaf (demo)", DISCLAIMER, now_iso()))
+            ensure_demo_people(db, ws)
+            uid = db.insert("INSERT INTO users (email, name, auth, created_at) VALUES ('rahul@demo.brandproof', 'Rahul', "
+                            "'demo', ?) ON CONFLICT (email) DO NOTHING RETURNING id", (now_iso(),))
+            if uid:
+                db.execute("INSERT INTO members (workspace_id, user_id, email, role, title, added_by, created_at) "
+                           "VALUES (?, ?, 'rahul@demo.brandproof', 'creator', 'Creator · Agency', 'System', ?)",
+                           (ws, uid, now_iso()))
+            seed_kit_rows(db, ws, "demo")
+            try:
+                from .demo_history import seed_history
+                seed_history(db, ws)
+            except Exception:  # the demo still works without the sample history
+                import logging
+                logging.getLogger("brandproof").exception("could not seed demo history")
+            return ws
+        ws = demo_workspace_id(db)
+        if ws:
+            ensure_demo_people(db, ws)
+        return ws
