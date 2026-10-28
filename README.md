@@ -94,7 +94,14 @@ python scripts/eval.py                         # accuracy on 30 labelled drafts 
 
 The tests include a **fake AI** that returns deliberately bad answers (made-up quotes, a rule that doesn't exist, a rewrite with a wrong interest rate, a prompt-injection draft) to prove that the verification code catches them. Other tests prove the AI never receives personal data, that a second-opinion disagreement sends a finding to a human, and that form posts from other websites are refused. GitHub Actions runs the tests on every push.
 
-**Accuracy, code checks only (no AI):** 100% of findings correct, 30 of 34 planted errors caught (88%). The 4 misses are the tone and meaning issues that need the AI (jargon, mocking tone, "instant" vs "1 working day"). The test set is small and was written by the team, so these numbers show the checks work as designed; they are not an independent benchmark. Run `scripts/eval.py` with a Gemini key to measure the AI checks.
+| Run (28 Oct 2026) | Findings correct (precision) | Planted errors caught (recall) |
+|---|---|---|
+| Code checks only (no AI) | 100% | 30 of 34 (88%) |
+| With Gemini (`gemini-3.5-flash`, busy calls answered by `gemini-3.5-flash-lite`) | 97.1% (1 extra) | **34 of 34 (100%)** |
+
+The AI adds the 4 tone and meaning issues code can't catch (jargon, mocking tone, "instant" vs "1 working day"). Before we added the overlap filter and the second opinion, the AI run had 8 extra tone findings (81% precision); now it has 1, and 1 more AI finding was disputed by the second check and shown as a *possible issue* for a person (counted as neither right nor wrong). Results are in `data/eval_results.json` and on the *How it works* page.
+
+The test set is small and was written by the team, so these numbers show the checks work as designed; they are not an independent benchmark. AI answers vary a little between runs and models.
 
 ## Deploy
 

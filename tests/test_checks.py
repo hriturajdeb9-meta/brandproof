@@ -228,6 +228,7 @@ class PrivacyAndSecondCheckTests(unittest.TestCase):
         self.assertEqual(len(tone), 1)
         self.assertFalse(tone[0]["second_check"]["agree"])
         self.assertTrue(tone[0]["needs_human"])
+        self.assertEqual(tone[0]["severity"], "info")  # shown as a possible issue
         self.assertEqual(result["summary"]["stats"]["second_disagreed"], 1)
         self.assertIn("second", [c["purpose"] for c in result["summary"]["ai"]["calls"]])
 

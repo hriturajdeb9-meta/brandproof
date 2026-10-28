@@ -3,7 +3,7 @@
 <article class="fc sev-{{ f.severity }}{% if d %} decided{% endif %}" id="f-{{ f.key }}" data-key="{{ f.key }}">
   <div class="fc-top">
     {% if f.n %}<span class="num">{{ f.n }}</span>{% endif %}
-    <span class="tag sev-{{ f.severity }}">{{ f.severity | capitalize }}</span>
+    <span class="tag sev-{{ f.severity }}">{{ 'Possible issue' if f.severity == 'info' else f.severity | capitalize }}</span>
     <span class="tag dim">{{ DIMENSION_LABELS.get(f.dimension, f.dimension) }}</span>
     {% if f.verdict %}<span class="tag v-{{ f.verdict }}">{{ f.verdict | capitalize }}</span>{% endif %}
     <span class="tag m-{{ f.method | replace('+', '') }}" title="How this was found">{{ f.method_label }}</span>

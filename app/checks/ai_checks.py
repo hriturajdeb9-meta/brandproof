@@ -180,6 +180,8 @@ def ai_second_opinion(ai: AIGateway, kit: Kit, text: str, findings: list[dict]) 
             f["second_check"] = {"agree": False, "reason": str((v or {}).get("reason") or "No clear answer.")[:300]}
             f["needs_human"] = True
             f["confidence"] = "low"
+            if f["severity"] == "minor":
+                f["severity"] = "info"  # shown as a possible issue for a person to judge; doesn't lower the score
     return info
 
 

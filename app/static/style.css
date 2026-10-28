@@ -101,6 +101,7 @@ main { padding-top: 22px; padding-bottom: 30px; min-height: 60vh; }
 .tag.ok, .tag.v-supported { background: var(--ok-soft); color: var(--ok); }
 .sev-blocker.tag { background: var(--blk-soft); color: var(--blk); } .sev-major.tag { background: var(--maj-soft); color: var(--maj); }
 .sev-minor.tag { background: var(--min-soft); color: var(--min); }
+.sev-info.tag { background: var(--soft2); color: var(--ink2); }
 .tag.v-prohibited { background: #5E1410; color: #fff; } .tag.v-contradicted { background: var(--blk-soft); color: var(--blk); }
 .tag.v-outdated { background: var(--maj-soft); color: var(--maj); } .tag.v-unsupported { background: #FFF4D6; color: #7A4F00; }
 .tag.m-code { background: var(--accent-soft); color: var(--accent-ink); } .tag.m-aicode { background: var(--ai-soft); color: var(--ai); }

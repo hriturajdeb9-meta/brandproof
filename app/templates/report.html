@@ -80,7 +80,7 @@
     {% for f in findings %}{% set d = decisions.get(f.key) %}
       <tr>
         <td>{{ f.n or '' }}</td>
-        <td class="sev sev-{{ f.severity }}">{{ f.severity }}<div class="small muted">{{ DIMENSION_LABELS.get(f.dimension, f.dimension) }}</div></td>
+        <td class="sev sev-{{ f.severity }}">{{ 'possible issue' if f.severity == 'info' else f.severity }}<div class="small muted">{{ DIMENSION_LABELS.get(f.dimension, f.dimension) }}</div></td>
         <td><b>{{ f.title }}</b>{% if f.quote and f.target != 'draft' %}<blockquote>“{{ f.quote }}”{% if f.target == 'image' %} (in the image){% endif %}</blockquote>{% endif %}
           <div>{{ f.message }}</div>
           {% for e in f.evidence %}{% if e.id %}<div class="small muted">Ledger {{ e.id }}: “{{ e.statement }}” · owner {{ e.owner }} · valid until {{ e.valid_until }}</div>{% endif %}{% endfor %}

@@ -45,10 +45,16 @@ def main() -> None:
     per_dim: dict[str, dict] = {}
     tp = fp = fn = expected_total = 0
     details = []
+    possible = 0
+    models: set[str] = set()
     pause = float(os.environ.get("EVAL_PAUSE_SECONDS", "0" if not ai.enabled else "4"))
     for item in testset["drafts"]:
         result = run_checks(ai, kit, {"channel": item.get("channel"), "goal": "", "locked": []}, item["body"], None, None, "")
-        found = [f for f in result["findings"] if f["severity"] != "ok"]
+        # "possible issues" are AI findings the second opinion disputed; they go to a person, so they are not
+        # counted as findings here (a planted error that ends up as one counts as missed)
+        found = [f for f in result["findings"] if f["severity"] not in ("ok", "info")]
+        possible += sum(1 for f in result["findings"] if f["severity"] == "info")
+        models.update(c["model"] for c in result["summary"]["ai"]["calls"] if c.get("ok") and c.get("model"))
         acceptable = set(item.get("acceptable", []))
         unmatched = list(found)
         missed = []
@@ -81,10 +87,11 @@ def main() -> None:
     out = {
         "description": testset["description"],
         "run_at": datetime.now(timezone.utc).strftime("%d %b %Y"),
-        "ai": ai.label,
+        "ai": ai.label + (f" (answers from {', '.join(sorted(models))})" if models else ""),
         "drafts": len(testset["drafts"]),
         "expected": expected_total,
         "true_positives": tp, "false_positives": fp, "missed": fn,
+        "possible_issues": possible,
         "precision_pct": pct(tp, tp + fp),
         "recall_pct": pct(tp, tp + fn),
         "by_dimension": {k: {"precision_pct": pct(v["tp"], v["tp"] + v["fp"]), "recall_pct": pct(v["tp"], v["tp"] + v["fn"]),
@@ -95,7 +102,7 @@ def main() -> None:
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(out, fh, ensure_ascii=False, indent=2)
     print(f"{out['ai']}: precision {out['precision_pct']}%, recall {out['recall_pct']}% "
-          f"({tp} found, {fp} extra, {fn} missed of {expected_total} planted)")
+          f"({tp} found, {fp} extra, {fn} missed of {expected_total} planted; {possible} possible issues for a person)")
     for d in details:
         if d["missed"] or d["extra"]:
             print(" ", d["id"], "missed:", [m["rule"] for m in d["missed"]], "extra:", [(e["rule"], e["quote"]) for e in d["extra"]])

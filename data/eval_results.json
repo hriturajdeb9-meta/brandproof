@@ -1,14 +1,15 @@
 {
   "description": "30 short Paisaleaf drafts written by the team, with the brand-rule breaks we planted in each. 7 drafts are clean. 'acceptable' lists rules that are reasonable extra findings and are not counted against precision.",
-  "run_at": "23 Oct 2026",
-  "ai": "AI off (code checks only)",
+  "run_at": "28 Oct 2026",
+  "ai": "Google Gemini · gemini-3.5-flash (answers from gemini-3.5-flash, gemini-3.5-flash-lite)",
   "drafts": 30,
   "expected": 34,
-  "true_positives": 30,
-  "false_positives": 0,
-  "missed": 4,
-  "precision_pct": 100.0,
-  "recall_pct": 88.2,
+  "true_positives": 34,
+  "false_positives": 1,
+  "missed": 0,
+  "possible_issues": 1,
+  "precision_pct": 97.1,
+  "recall_pct": 100.0,
   "by_dimension": {
     "accessibility": {
       "precision_pct": 100.0,
@@ -17,7 +18,7 @@
     },
     "claims": {
       "precision_pct": 100.0,
-      "recall_pct": 91.7,
+      "recall_pct": 100.0,
       "expected": 12
     },
     "messaging": {
@@ -31,8 +32,8 @@
       "expected": 8
     },
     "tone": {
-      "precision_pct": 100.0,
-      "recall_pct": 57.1,
+      "precision_pct": 87.5,
+      "recall_pct": 100.0,
       "expected": 7
     }
   },
@@ -110,7 +111,13 @@
     {
       "id": "T15",
       "missed": [],
-      "extra": []
+      "extra": [
+        {
+          "rule": "R-TON-01",
+          "quote": "Download the app and signup today.",
+          "title": "Calm confidence, no pressure"
+        }
+      ]
     },
     {
       "id": "T16",
@@ -124,12 +131,7 @@
     },
     {
       "id": "T18",
-      "missed": [
-        {
-          "rule": "R-CLM-02",
-          "quote": "instantly"
-        }
-      ],
+      "missed": [],
       "extra": []
     },
     {
@@ -139,22 +141,12 @@
     },
     {
       "id": "T20",
-      "missed": [
-        {
-          "rule": "R-TON-03",
-          "quote": "liquidity"
-        }
-      ],
+      "missed": [],
       "extra": []
     },
     {
       "id": "T21",
-      "missed": [
-        {
-          "rule": "R-TON-04",
-          "quote": "grandpa"
-        }
-      ],
+      "missed": [],
       "extra": []
     },
     {
@@ -184,11 +176,7 @@
     },
     {
       "id": "T27",
-      "missed": [
-        {
-          "rule": "R-TON-03"
-        }
-      ],
+      "missed": [],
       "extra": []
     },
     {

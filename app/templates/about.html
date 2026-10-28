@@ -47,6 +47,7 @@
   <div class="scores scores-sm">
     <div class="score good"><span class="score-label">Findings that were correct</span><span class="score-val">{{ accuracy.precision_pct }}%</span><span class="score-sub">precision</span></div>
     <div class="score good"><span class="score-label">Planted errors caught</span><span class="score-val">{{ accuracy.recall_pct }}%</span><span class="score-sub">recall</span></div>
+    {% if accuracy.possible_issues is defined %}<div class="score"><span class="score-label">Possible issues</span><span class="score-val">{{ accuracy.possible_issues }}</span><span class="score-sub">disputed by the second check, sent to a person</span></div>{% endif %}
     <div class="score"><span class="score-label">Drafts</span><span class="score-val">{{ accuracy.drafts }}</span><span class="score-sub">{{ accuracy.expected }} planted errors</span></div>
   </div>
   {% if accuracy.by_dimension %}
