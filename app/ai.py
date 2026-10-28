@@ -60,10 +60,11 @@ JOBS = {
 }
 
 DEFAULT_ROUTES = {
-    "text": "gemini:gemini-2.5-flash, gemini:gemini-flash-latest, groq:openai/gpt-oss-120b",
-    "image": "gemini:gemini-2.5-flash, gemini:gemini-flash-latest, groq:qwen/qwen3.8-27b",
+    # gemini-2.5-* returns HTTP 404 for new Google AI Studio projects since late 2026, so 3.5 is the default
+    "text": "gemini:gemini-3.5-flash, gemini:gemini-3.5-flash-lite, gemini:gemini-flash-latest, groq:openai/gpt-oss-120b",
+    "image": "gemini:gemini-3.5-flash, gemini:gemini-3.5-flash-lite, gemini:gemini-flash-latest, groq:qwen/qwen3.8-27b",
     # a different model family first, so the second opinion is independent of the first answer
-    "verify": "groq:openai/gpt-oss-120b, gemini:gemini-2.5-flash, gemini:gemini-flash-latest",
+    "verify": "groq:openai/gpt-oss-120b, gemini:gemini-3.5-flash-lite, gemini:gemini-flash-latest",
 }
 
 RATE_LIMITS = {"gemini": "AI_MAX_CALLS_PER_MINUTE", "groq": "GROQ_MAX_CALLS_PER_MINUTE"}
@@ -305,7 +306,8 @@ class AIGateway:
             parts.append({"inline_data": {"mime_type": mime, "data": base64.b64encode(image).decode()}})
         config = {"temperature": 0, "responseMimeType": "application/json"}
         if model.startswith("gemini-2.5-flash"):
-            config["thinkingConfig"] = {"thinkingBudget": 0}  # these checks need speed, not long reasoning
+            # these checks need speed, not long reasoning; newer models reject thinkingBudget 0 (HTTP 400)
+            config["thinkingConfig"] = {"thinkingBudget": 0}
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": parts}],

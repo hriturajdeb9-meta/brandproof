@@ -28,10 +28,19 @@ from app.textutil import find_span, segments  # noqa: E402
 BANNER = os.path.join(ROOT, "app", "static", "samples", "paisaleaf-banner.png")
 
 
+_OPEN: list[Database] = []
+
+
+def tearDownModule():
+    while _OPEN:
+        _OPEN.pop().close()
+
+
 def fresh(provider="none"):
     os.environ["AI_PROVIDER"] = provider
     os.environ["FAKE_AI_FILE"] = os.path.join(ROOT, "tests", "fake_ai.json")
     db = Database(sqlite_path=":memory:")
+    _OPEN.append(db)
     db.init_schema()
     seed_kit_rows(db, 1, "demo")
     return db, load_kit(db, 1), AIGateway(db)

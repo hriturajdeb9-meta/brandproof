@@ -70,6 +70,13 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(requests.get(self.base + path).status_code, 200, path)
         self.assertEqual(requests.get(self.base + "/drafts/99999").status_code, 404)
 
+    def test_cross_site_posts_are_refused(self):
+        s = self.session("creator")
+        r = s.post(self.base + "/samples/instagram", headers={"Origin": "https://evil.example"})
+        self.assertEqual(r.status_code, 403)
+        r = s.post(self.base + "/samples/instagram", headers={"Origin": self.base})
+        self.assertEqual(r.status_code, 200)
+
     def test_full_workflow(self):
         priya, meera = self.session("creator"), self.session("reviewer")
         r = self.done(priya, priya.post(self.base + "/samples/instagram"))

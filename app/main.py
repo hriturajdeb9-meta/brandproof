@@ -5,12 +5,13 @@ import json
 import logging
 import os
 from contextlib import asynccontextmanager
+from urllib.parse import urlsplit
 
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
 from starlette.requests import Request
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
@@ -86,6 +87,24 @@ async def healthz(request: Request):
     return JSONResponse({"ok": ok, "storage": S.db.kind, "rls": S.db.rls, "ai": S.ai.label,
                          "auth": "supabase" if auth.supabase_on() else "built-in", "warning": S.db.warning},
                         status_code=200 if ok else 503)
+
+
+class SameOriginPosts:
+    """Refuse form posts sent from another site (CSRF). Browsers send an Origin header on every POST."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "POST":
+            headers = dict(scope["headers"])
+            origin = headers.get(b"origin", b"").decode("latin-1")
+            hosts = {headers.get(h, b"").decode("latin-1") for h in (b"host", b"x-forwarded-host")}
+            if origin and origin != "null" and urlsplit(origin).netloc not in hosts:
+                log.warning("Refused cross-site POST to %s from %s", scope["path"], origin)
+                await PlainTextResponse("Cross-site form posts are not allowed.", status_code=403)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
 
 
 async def http_error(request: Request, exc: HTTPException):
@@ -167,5 +186,6 @@ routes = [
     Mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static"),
 ]
 
-app = Starlette(routes=routes, lifespan=lifespan, middleware=[Middleware(SessionMiddleware)],
-                exception_handlers={HTTPException: http_error, 500: server_error})
+app = Starlette(routes=routes, lifespan=lifespan,
+                middleware=[Middleware(SameOriginPosts), Middleware(SessionMiddleware)],
+                exception_handlers={HTTPException: http_error, 500: server_error}, max_body_size=10 * 1024 * 1024)
