@@ -51,7 +51,7 @@ def dominant_colours(img: Image.Image, n: int = 8, side: int = 320) -> list[tupl
     small.thumbnail((side, side))
     q = small.quantize(colors=n, method=Image.Quantize.MEDIANCUT)
     groups: dict[int, Counter] = {}
-    for idx, px in zip(q.getdata(), small.getdata()):
+    for idx, px in zip(_pixels(q), _pixels(small)):
         groups.setdefault(idx, Counter())[px[:3]] += 1
     total = small.size[0] * small.size[1] or 1
     merged: list[list] = []
@@ -172,3 +172,8 @@ def _better_colour(kit: Kit, fg, bg, need: float):
         return None
     best = min(options, key=lambda o: o[3])
     return best[0], best[1], best[2]
+
+
+def _pixels(img: Image.Image):
+    # Pillow 12.1+ renamed getdata (removed in Pillow 14)
+    return img.get_flattened_data() if hasattr(img, "get_flattened_data") else img.getdata()

@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ..ai import AIGateway
 from ..kit import DIMENSIONS, SEVERITIES, Kit
-from .ai_checks import ai_claims, ai_read_image, ai_tone
+from .ai_checks import ai_claims, ai_read_image, ai_second_opinion, ai_tone
 from .claims import claim_findings
 from .code_checks import (check_alt_text, check_caps_and_emoji, check_pattern_rules, check_readability,
                           check_required_text, check_terminology)
@@ -23,7 +23,8 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
     findings: list[dict] = []
     ai_calls: list[dict] = []
     notes: list[str] = []
-    stats = {"ai_proposed": 0, "ai_discarded": 0, "code_added": 0, "needs_human": 0}
+    stats = {"ai_proposed": 0, "ai_discarded": 0, "code_added": 0, "needs_human": 0, "second_checked": 0,
+             "second_disagreed": 0}
     use_ai = ai.enabled
 
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -57,13 +58,23 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
         # ---- tone (AI)
         if fut_tone:
             tone, tinfo = fut_tone.result()
-            ai_calls.append({k: tinfo.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error", "ms")})
+            ai_calls.append({k: tinfo.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error", "ms",
+                                                         "redacted")})
             findings += tone
             stats["ai_proposed"] += tinfo.get("ai_proposed", 0)
             stats["ai_discarded"] += tinfo.get("ai_discarded", 0)
             stats["needs_human"] += tinfo.get("needs_human", 0)
         elif has_text and not use_ai:
             notes.append("AI tone check skipped (AI is off). Code tone rules still ran.")
+
+        # ---- second opinion on every AI-assessed finding (code applies the answer)
+        if has_text and use_ai:
+            sinfo = ai_second_opinion(ai, kit, body, findings)
+            if sinfo:
+                ai_calls.append({k: sinfo.get(k) for k in ("purpose", "provider", "model", "ok", "cached", "error",
+                                                           "ms", "redacted")})
+                stats["second_checked"] += sinfo["checked"]
+                stats["second_disagreed"] += sinfo["disagreed"]
 
         # ---- image
         image_info: dict = {}
@@ -95,11 +106,17 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
             if read and read.get("alt_text") and (alt or "").strip():
                 image_info["ai_alt"] = read["alt_text"]
 
+    redacted: dict[str, int] = {}
+    for c in ai_calls:
+        for kind, n in (c.get("redacted") or {}).items():
+            redacted[kind] = max(redacted.get(kind, 0), n)
+
     stats["needs_human"] += sum(1 for f in findings if f.get("needs_human") and f["method"] != "ai")
     findings = _order(findings)
     summary = _summary(findings, has_text, bool(image))
     summary.update({
         "ai": {"enabled": use_ai, "label": ai.label, "calls": ai_calls},
+        "redacted": redacted,
         "stats": stats,
         "notes": notes,
         "image": image_info,

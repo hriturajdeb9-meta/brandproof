@@ -24,6 +24,7 @@ from collections import deque
 import requests
 
 from .db import Database, now_iso
+from .redact import redact, restore
 
 log = logging.getLogger("brandproof.ai")
 
@@ -79,13 +80,17 @@ class AIGateway:
 
     # ----------------------------------------------------------------- calls
     def json(self, purpose: str, system: str, prompt: str, image: bytes | None = None,
-             image_mime: str = "image/png") -> tuple[dict | None, dict]:
-        """Ask the model for a JSON object. Returns (data or None, meta)."""
+             image_mime: str = "image/png", private_terms: list[str] | None = None) -> tuple[dict | None, dict]:
+        """Ask the model for a JSON object. Returns (data or None, meta).
+
+        Personal data and private_terms in the draft are replaced by placeholders before the call and put back in
+        the answer, so the provider never sees them."""
         meta = {"purpose": purpose, "provider": self.provider, "model": self.model, "ok": False, "cached": False,
-                "error": "", "ms": 0}
+                "error": "", "ms": 0, "redacted": {}}
         if not self.enabled:
             meta["error"] = "AI is not configured"
             return None, meta
+        prompt, mapping, meta["redacted"] = redact(prompt, private_terms)
         key = hashlib.sha256(
             "\x1f".join([self.provider, self.model, purpose, system, prompt,
                          hashlib.sha256(image).hexdigest() if image else ""]).encode()
@@ -94,7 +99,7 @@ class AIGateway:
         if cached:
             meta.update(ok=True, cached=True)
             self._log(meta)
-            return json.loads(cached), meta
+            return restore(json.loads(cached), mapping), meta
         if not self._allow():
             meta["error"] = "Rate limit reached (protecting the free AI quota); try again in a minute"
             self._log(meta)
@@ -115,7 +120,7 @@ class AIGateway:
                 "INSERT INTO ai_cache (key, response, created_at) VALUES (?, ?, ?) ON CONFLICT (key) DO NOTHING",
                 (key, json.dumps(data, ensure_ascii=False), now_iso()),
             )
-            return data, meta
+            return restore(data, mapping), meta
         except Exception as exc:  # the checks continue without AI
             meta["error"] = _short_error(exc)
             log.warning("AI call %s failed: %s", purpose, meta["error"])

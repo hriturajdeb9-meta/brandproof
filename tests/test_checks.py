@@ -18,6 +18,7 @@ from app.ai import AIGateway  # noqa: E402
 from app.checks.claims import numbers, validate_rewrite  # noqa: E402
 from app.checks.image import looks_like_photo, normalise_image, open_rgb  # noqa: E402
 from app.checks.pipeline import run_checks  # noqa: E402
+from app.redact import redact, restore  # noqa: E402
 from app.colour import ciede2000, contrast, hex_to_rgb  # noqa: E402
 from app.db import Database  # noqa: E402
 from app.kit import load_kit  # noqa: E402
@@ -185,12 +186,50 @@ class RewriteAndFixTests(unittest.TestCase):
 
 class ImageTests(unittest.TestCase):
     def test_photo_heuristic(self):
-        self.assertFalse(looks_like_photo(open_rgb(open(BANNER, "rb").read())))
+        with open(BANNER, "rb") as fh:
+            self.assertFalse(looks_like_photo(open_rgb(fh.read())))
         import random
         random.seed(1)
         img = Image.new("RGB", (120, 90))
         img.putdata([(random.randrange(256), random.randrange(256), random.randrange(256)) for _ in range(120 * 90)])
         self.assertTrue(looks_like_photo(img))
+
+
+
+class PrivacyAndSecondCheckTests(unittest.TestCase):
+    def test_redact_and_restore(self):
+        prompt = ("RULES: call 1800 000 0000\n<<<DRAFT\nMail priya.s@gmail.com or +91 98765 43210. PAN ABCDE1234F. "
+                  "Card 4111 1111 1111 1111, not 1234 5678 9012 3456. Project Banyan. Earn 7.10% p.a., 50,00,000 users."
+                  "\nDRAFT>>>")
+        out, mapping, counts = redact(prompt, ["project banyan"])
+        for secret in ("priya.s@gmail.com", "98765 43210", "ABCDE1234F", "4111 1111 1111 1111", "Project Banyan"):
+            self.assertNotIn(secret, out)
+        self.assertIn("1800 000 0000", out)  # only the draft is redacted
+        self.assertIn("1234 5678 9012 3456", out)  # fails the Luhn check, so not a card number
+        self.assertIn("7.10% p.a., 50,00,000 users", out)
+        self.assertEqual(counts, {"email": 1, "card": 1, "pan": 1, "phone": 1, "confidential": 1})
+        self.assertEqual(restore({"q": [out]}, mapping), {"q": [prompt]})
+
+    def test_ai_never_sees_personal_data(self):
+        db, kit, ai = fresh("fake")
+        seen = []
+        real = ai._fake_answer
+        ai._fake_answer = lambda purpose, prompt: seen.append(prompt) or real(purpose, prompt)
+        meta = {"channel": "Email", "goal": "", "locked": []}
+        text = "Questions? Write to priya.s@gmail.com about Project Banyan. Hurry, last chance!"
+        result = run_checks(ai, kit, meta, text, None, None, "")
+        self.assertTrue(seen)
+        self.assertFalse(any("priya.s@gmail.com" in p or "Project Banyan" in p for p in seen))
+        self.assertEqual(result["summary"]["redacted"], {"email": 1, "confidential": 1})
+
+    def test_second_check_disagreement_needs_human(self):
+        result = run(SAMPLE_POST["body"], provider="fake")
+        tone = [f for f in result["findings"] if f["rule_id"] == "R-TON-01" and f["method"] == "ai"]
+        self.assertEqual(len(tone), 1)
+        self.assertFalse(tone[0]["second_check"]["agree"])
+        self.assertTrue(tone[0]["needs_human"])
+        self.assertEqual(result["summary"]["stats"]["second_disagreed"], 1)
+        self.assertIn("second", [c["purpose"] for c in result["summary"]["ai"]["calls"]])
 
 
 if __name__ == "__main__":

@@ -57,6 +57,7 @@ class Kit:
     palette: list[dict]
     disclaimer: str
     hash: str
+    private_terms: list[str] = field(default_factory=list)  # removed from drafts before any AI call
     compiled: dict[str, re.Pattern] = field(default_factory=dict)
 
     def rule(self, rule_id: str) -> dict | None:
@@ -116,8 +117,25 @@ def load_kit(db: Database) -> Kit:
         )
     palette = db.all("SELECT * FROM palette ORDER BY id")
     disclaimer = db.get_meta("disclaimer") or ""
+    private = db.get_meta("private_terms")
+    private_terms = parse_terms(DEFAULT_PRIVATE_TERMS if private is None else private)
     digest = hashlib.sha256(
         json.dumps([sorted(rules.items()), glossary, [f.__dict__ for f in facts.values()], palette, disclaimer],
                    sort_keys=True, default=str).encode()
     ).hexdigest()[:12]
-    return Kit(rules=rules, glossary=glossary, facts=facts, palette=palette, disclaimer=disclaimer, hash=digest)
+    return Kit(rules=rules, glossary=glossary, facts=facts, palette=palette, disclaimer=disclaimer, hash=digest,
+               private_terms=private_terms)
+
+
+# Fictional internal names for the Paisaleaf demo; the brand manager edits the list on the Brand Kit page.
+DEFAULT_PRIVATE_TERMS = "Project Banyan\nLeafLend\nPaisaleaf internal roadmap"
+
+
+def parse_terms(raw: str) -> list[str]:
+    seen, out = set(), []
+    for line in (raw or "").replace(",", "\n").splitlines():
+        t = " ".join(line.split())[:80]
+        if len(t) >= 3 and t.lower() not in seen:
+            seen.add(t.lower())
+            out.append(t)
+    return out[:50]

@@ -11,6 +11,7 @@
   <a href="/kit?tab=glossary" {% if tab == 'glossary' %}aria-current="page"{% endif %}>Glossary ({{ rows.glossary | length }})</a>
   <a href="/kit?tab=facts" {% if tab == 'facts' %}aria-current="page"{% endif %}>Claim Ledger ({{ rows.facts | length }})</a>
   <a href="/kit?tab=palette" {% if tab == 'palette' %}aria-current="page"{% endif %}>Palette ({{ rows.palette | length }})</a>
+  <a href="/kit?tab=privacy" {% if tab == 'privacy' %}aria-current="page"{% endif %}>Kept from AI ({{ private_terms | length }})</a>
   <span class="muted small kit-ver">kit version {{ kit_hash }}</span>
 </nav>
 
@@ -63,9 +64,31 @@
   </div>
   <p class="small muted">Image colours further than ΔE 10 (CIEDE2000) from every palette colour are flagged. The required disclaimer is: “{{ disclaimer }}”</p>
 </section>
+{% elif tab == 'privacy' %}
+<section class="card">
+  <h2>Kept from the AI</h2>
+  <p>Before any draft is sent to the AI, Brandproof replaces these with placeholders such as <span class="mono">[EMAIL-1]</span> and puts the real words back in the results. The AI provider never sees them.</p>
+  <ul class="tight small">
+    <li><b>Always removed:</b> email addresses, phone numbers, UPI IDs, card numbers, PAN and Aadhaar numbers.</li>
+    <li><b>Confidential terms</b> (below): internal project names, unreleased products, partner names.</li>
+    <li>Images are sent as they are, so don't put personal data in images you check.</li>
+  </ul>
+  {% if role == 'brand' %}
+  <form class="form" method="post" action="/kit/private-terms">
+    <label for="terms">Confidential terms, one per line</label>
+    <textarea id="terms" name="terms" rows="6" maxlength="4000">{{ private_terms | join('\n') }}</textarea>
+    <div class="row-actions"><button class="btn btn-primary" type="submit">Save</button></div>
+  </form>
+  {% else %}
+  <h3>Confidential terms</h3>
+  <ul class="tight">{% for t in private_terms %}<li>{{ t }}</li>{% else %}<li class="muted">No confidential terms yet.</li>{% endfor %}</ul>
+  <p class="small muted">Only the brand manager can change this list.</p>
+  {% endif %}
+</section>
 {% endif %}
 
-{% if role == 'brand' %}
+{% if tab == 'privacy' %}
+{% elif role == 'brand' %}
 <section class="card" id="form">
   <h2>{% if editing %}Edit{% else %}Add{% endif %} {{ {'rules': 'rule', 'glossary': 'glossary entry', 'facts': 'fact', 'palette': 'colour'}[tab] }}</h2>
   <form class="form" method="post" action="/kit/{{ tab }}/save">

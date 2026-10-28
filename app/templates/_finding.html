@@ -37,6 +37,7 @@
       </dd>
     {% endif %}
     {% if f.method != 'code' %}<dt>Confidence</dt><dd>{{ f.confidence | capitalize }}</dd>{% endif %}
+    {% if f.second_check %}<dt>Second check</dt><dd>{% if f.second_check.agree %}<span class="tag v-supported">Agreed</span>{% elif f.second_check.agree is none %}<span class="tag human">Not run</span>{% else %}<span class="tag human">Disagreed</span>{% endif %} {{ f.second_check.reason }}</dd>{% endif %}
   </dl>
   {% if d %}
     <div class="decision d-{{ d.action }}">

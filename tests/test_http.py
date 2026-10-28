@@ -150,5 +150,19 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("Priya", r.text)
 
 
+    def test_report_and_private_terms(self):
+        priya, arjun = self.session("creator"), self.session("brand")
+        r = priya.post(self.base + "/samples/instagram")
+        report = priya.get(re.sub(r"\?.*$", "", r.url) + "/report")
+        self.assertEqual(report.status_code, 200)
+        self.assertIn("Print or save as PDF", report.text)
+        self.assertIn("Prohibited claim", report.text)
+        self.assertIn("Project Banyan", priya.get(self.base + "/kit?tab=privacy").text)
+        self.assertEqual(priya.post(self.base + "/kit/private-terms", data={"terms": "x"}).status_code, 403)
+        r = arjun.post(self.base + "/kit/private-terms", data={"terms": "Project Banyan\nOperation Mango"})
+        self.assertIn("Operation Mango", r.text)
+
+
+
 if __name__ == "__main__":
     unittest.main()

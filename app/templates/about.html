@@ -11,8 +11,10 @@
   <ol class="pipeline">
     <li><b>Read.</b> Text is taken from the text box or a .docx file. Images are resized and their colours measured. AI reads the words inside the image and where they are.</li>
     <li><b>Code checks.</b> Glossary terms, banned phrases, required disclaimers, all-caps and hype emoji, readability, link text, inclusive language, image colours against the palette (CIEDE2000 distance) and text contrast (WCAG formula).</li>
+    <li><b>Remove private data.</b> Email addresses, phone numbers, UPI IDs, card, PAN and Aadhaar numbers and the Brand Kit's confidential terms are replaced with placeholders such as <span class="mono">[EMAIL-1]</span> before anything goes to the AI, and put back in the results.</li>
     <li><b>AI checks.</b> The AI finds claims and says which ledger fact each one is about, and reviews tone against the tone rules and their examples. It must quote the draft exactly and answer in strict JSON.</li>
     <li><b>Verify.</b> Code throws away any AI finding whose quote isn't really in the draft or whose rule doesn't exist. <b>Code, not AI, decides claim verdicts</b> by comparing numbers and expiry dates with the Claim Ledger. AI rewrites are shown only if they keep locked phrases, use only ledger numbers and make no prohibited promises.</li>
+    <li><b>Second opinion.</b> Every finding that only the AI could judge (tone, or a claim's meaning) is sent to a second, independent AI review. If it disagrees, the finding is marked <b>Needs human judgment</b> and goes to a reviewer.</li>
     <li><b>Explain.</b> Every finding shows its rule, source, method (code or AI), confidence and a fix. Nothing changes until a person accepts it.</li>
     <li><b>Route.</b> Drafts with claims, rejected serious findings, open major findings or AI uncertainty go to a reviewer. Everything else is cleared automatically, and that is logged too.</li>
   </ol>
@@ -24,7 +26,7 @@
     <thead><tr><th>Service</th><th>What it does here</th><th>What it receives</th></tr></thead>
     <tbody>
       <tr><td><b>{{ ai_label }}</b></td><td>Finds claims, reviews tone against the tone rules, reads text in images and suggests alt text.</td>
-        <td>The draft text (up to 6,000 characters), the goal and locked phrases, the tone rules, the Claim Ledger facts, and uploaded images. Not your name, comments or other drafts.</td></tr>
+        <td>The draft text (up to 6,000 characters) with personal data and confidential terms removed, the goal and locked phrases, the tone rules, the Claim Ledger facts, and uploaded images (sent as they are). Not your name, comments or other drafts.</td></tr>
       <tr><td><b>No other services</b></td><td>Everything else runs as code on our own server.</td><td>-</td></tr>
     </tbody>
   </table></div>
@@ -61,7 +63,7 @@
     <li><b>Minimum data to the AI.</b> Only the draft being checked and the relevant rules and facts are sent, never the whole Brand Kit or other drafts.</li>
     <li><b>Storage.</b> Drafts, versions, decisions, comments and the audit log are stored in {{ 'PostgreSQL' if storage == 'postgres' else 'SQLite' }} on our server. Images are re-encoded (which strips camera metadata) before they are stored.</li>
     <li><b>Roles.</b> This demo has no sign-in so judges can try every role. The role switcher is a convenience, not security: anyone using the demo can act as the reviewer or brand manager. Each action is still recorded against the role that did it, and forms posted from other websites are refused. A real deployment would put sign-in in front of these roles.</li>
-    <li><b>Coming in Round 3:</b> personal data (emails, phone numbers) and confidential terms removed before any AI call, and serious AI findings double-checked.</li>
+    <li><b>Kept from the AI.</b> Personal data and the confidential terms listed in the Brand Kit (<a href="/kit?tab=privacy">Kept from AI</a>) are removed from the draft before every AI call. Each check says what was removed. Text inside images can't be removed, so don't check images that contain personal data.</li>
   </ul>
 </section>
 

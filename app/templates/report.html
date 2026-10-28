@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Check report · {{ draft.title }} · Brandproof</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <style>
+    :root { --ink: #13213C; --muted: #5F6A82; --line: #DDE2EC; --soft: #F4F6FA; --blk: #C0261C; --maj: #A8520A; --min: #2C5FCC; --ok: #0A6B52; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fff; color: var(--ink); font: 14px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+    main { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 1.5rem; margin: 0 0 4px; } h2 { font-size: 1.05rem; margin: 28px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+    p { margin: 0 0 8px; } .muted { color: var(--muted); } .small { font-size: .85rem; }
+    .bar { display: flex; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+    .btn { font: inherit; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--soft); color: var(--ink); cursor: pointer; text-decoration: none; }
+    .btn-primary { background: #0E8A6A; border-color: #0E8A6A; color: #fff; }
+    .head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; align-items: flex-start; }
+    .stamp { border: 2px solid var(--muted); border-radius: 8px; padding: 6px 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .stamp.approved { border-color: var(--ok); color: var(--ok); } .stamp.in_review { border-color: var(--min); color: var(--min); }
+    .stamp.changes_requested { border-color: var(--maj); color: var(--maj); }
+    .scores { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+    .score { border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+    .score b { display: block; font-size: 1.3rem; }
+    .body { white-space: pre-wrap; border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--soft); }
+    .img { max-width: 100%; max-height: 360px; border: 1px solid var(--line); border-radius: 8px; display: block; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th, td { text-align: left; vertical-align: top; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+    th { background: var(--soft); }
+    .sev { font-weight: 700; text-transform: capitalize; }
+    .sev-blocker { color: var(--blk); } .sev-major { color: var(--maj); } .sev-minor { color: var(--min); } .sev-ok { color: var(--ok); }
+    blockquote { margin: 0 0 4px; font-style: italic; }
+    ul { margin: 0; padding-left: 20px; }
+    @media print {
+      .bar { display: none; } main { padding: 0; max-width: none; } body { font-size: 11pt; }
+      tr, .score { break-inside: avoid; } h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <a class="btn" href="/drafts/{{ draft.id }}?v={{ n }}">← Back to the draft</a>
+    <button class="btn btn-primary" type="button" onclick="window.print()">Print or save as PDF</button>
+  </div>
+
+  <div class="head">
+    <div>
+      <p class="muted small">Brandproof check report · Paisaleaf (fictional demo brand)</p>
+      <h1>{{ draft.title }}</h1>
+      <p class="muted">{{ draft.channel }} · by {{ draft.created_by }} · version {{ n }} of {{ draft.current_version }} · checked {{ version.created_at | when }}{% if draft.goal %} · Goal: <i>{{ draft.goal }}</i>{% endif %}</p>
+      {% if draft.locked_list %}<p class="small">Locked phrases: {{ draft.locked_list | join(', ') }}</p>{% endif %}
+    </div>
+    <div class="stamp {{ draft.status if is_current else '' }}">{% if is_current %}{{ STATUS[draft.status][0] }}{% else %}Older version{% endif %}</div>
+  </div>
+
+  {% if approval and is_current %}
+  <p><b>Approval record:</b> {% if approval.action == 'draft.auto_approved' %}cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}approved by {{ approval.actor }}{% if approval.detail_obj.comment %}, comment: “{{ approval.detail_obj.comment }}”{% endif %}{% endif %} on {{ approval.created_at | when }}.</p>
+  {% endif %}
+  {% if draft.status == 'in_review' and is_current %}<p><b>Sent to a reviewer because</b> {{ draft.review_reason }}.</p>{% endif %}
+
+  <h2>Scores</h2>
+  <div class="scores">
+    {% for dim in DIMENSIONS %}{% set s = summary.dimensions[dim] %}
+    <div class="score"><span class="small muted">{{ DIMENSION_LABELS[dim] }}</span><b>{% if s.score is none %}n/a{% else %}{{ s.score }}{% endif %}</b><span class="small muted">{% if s.score is none %}not applicable{% elif s.issues %}{{ s.issues }} issue{{ 's' if s.issues != 1 }}{% else %}no issues{% endif %}</span></div>
+    {% endfor %}
+  </div>
+
+  <h2>Content checked</h2>
+  {% if version.body %}<div class="body">{{ version.body }}</div>{% endif %}
+  {% if version.image %}<p style="margin-top:8px"><img class="img" src="/drafts/{{ draft.id }}/v/{{ n }}/image" alt="{{ version.alt_text or 'Image checked in this draft' }}"></p>
+  <p class="small"><b>Alt text:</b> {{ version.alt_text or 'none given' }}</p>{% endif %}
+
+  <h2>Findings ({{ findings | length }})</h2>
+  {% if findings %}
+  <div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>Severity</th><th>Finding</th><th>Rule and source</th><th>How found</th><th>Decision</th></tr></thead>
+    <tbody>
+    {% for f in findings %}{% set d = decisions.get(f.key) %}
+      <tr>
+        <td>{{ f.n or '' }}</td>
+        <td class="sev sev-{{ f.severity }}">{{ f.severity }}<div class="small muted">{{ DIMENSION_LABELS.get(f.dimension, f.dimension) }}</div></td>
+        <td><b>{{ f.title }}</b>{% if f.quote and f.target != 'draft' %}<blockquote>“{{ f.quote }}”{% if f.target == 'image' %} (in the image){% endif %}</blockquote>{% endif %}
+          <div>{{ f.message }}</div>
+          {% for e in f.evidence %}{% if e.id %}<div class="small muted">Ledger {{ e.id }}: “{{ e.statement }}” · owner {{ e.owner }} · valid until {{ e.valid_until }}</div>{% endif %}{% endfor %}
+          {% if f.fix and f.fix.text %}<div class="small">Suggested fix: {{ f.fix.text }}</div>{% endif %}</td>
+        <td>{{ f.rule_id }} {{ f.rule_title }}{% if f.source %}<div class="small muted">{{ f.source }}</div>{% endif %}</td>
+        <td>{{ f.method_label }}{% if f.method != 'code' %}<div class="small muted">confidence {{ f.confidence }}</div>{% endif %}
+          {% if f.second_check %}<div class="small">second check: {% if f.second_check.agree %}agreed{% elif f.second_check.agree is none %}not run{% else %}disagreed{% endif %}</div>{% endif %}
+          {% if f.needs_human %}<div class="small"><b>needs human judgment</b></div>{% endif %}</td>
+        <td>{% if d %}<b>{{ {'accept': 'Fix accepted', 'edit': 'Edited', 'reject': 'Rejected', 'acknowledge': 'Will fix in design', 'superseded': 'Resolved'}.get(d.action, d.action) }}</b>{% if d.action != 'superseded' %} by {{ d.actor }}{% endif %}{% if d.action == 'edit' and d.after_text %}<div class="small">to “{{ d.after_text }}”</div>{% endif %}{% if d.reason %}<div class="small">“{{ d.reason }}”</div>{% endif %}{% else %}<span class="muted">Open</span>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p>No issues found.</p>{% endif %}
+
+  {% if supported %}
+  <h2>Claims supported by the ledger ({{ supported | length }})</h2>
+  <ul>{% for f in supported %}<li>“{{ f.quote }}” · {% for e in f.evidence %}{% if e.id %}{{ e.id }} (valid until {{ e.valid_until }}){% endif %}{% endfor %}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if comments %}
+  <h2>Comments</h2>
+  <ul>{% for c in comments %}<li><b>{{ c.actor }}</b> <span class="muted small">{{ c.created_at | when }}</span>: {{ c.body }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h2>How this check ran</h2>
+  <ul class="small">
+    <li>{{ summary.ai.label }}{% if summary.ai.enabled %}: {{ summary.ai.calls | selectattr('ok') | list | length }} of {{ summary.ai.calls | length }} AI calls succeeded{% endif %}.</li>
+    {% if summary.redacted %}<li>Removed before the AI saw the draft: {{ summary.redacted | redacted }}.</li>{% endif %}
+    {% if summary.stats and summary.stats.second_checked %}<li>Second AI check reviewed {{ summary.stats.second_checked }} AI-assessed finding(s); disagreed with {{ summary.stats.second_disagreed }}.</li>{% endif %}
+    {% for note in summary.notes %}<li>{{ note }}</li>{% endfor %}
+    <li>Brand Kit version {{ summary.kit_hash }}. Claim verdicts are decided by code against the Claim Ledger; the AI never approves or publishes anything.</li>
+  </ul>
+  <p class="small muted" style="margin-top:24px">Generated by Brandproof on {{ now | when }}.</p>
+</main>
+</body>
+</html>

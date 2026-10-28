@@ -10,16 +10,19 @@ Built by **Team dibbankur** for Round 2 of the TechCircuit Hackathon 2026 (probl
 
 ---
 
-## What works (Round 2)
+## What works
 
 | Area | What you can do |
 |---|---|
 | **Brand Kit** | Rules (ID, dimension, severity, do/don't example, source page, optional regex), glossary, **Claim Ledger** (facts with evidence, owner and valid-until date) and colour palette. Add, edit, delete, CSV import and export. Changes apply to the next check. |
 | **Content intake** | Paste text, upload a **.docx**, upload a **PNG/JPG/WebP** image (or text and image together, like a social post). Add a one-line goal and locked phrases that fixes must keep. |
 | **Six checks** | **Facts & claims** (AI finds claims, code compares numbers and expiry dates with the ledger), **tone** (code patterns + AI against tone rules), **terminology** (glossary), **messaging** (banned phrases, required disclaimer), **visual** (image colours vs palette, CIEDE2000), **accessibility** (text contrast in images, alt text, readability, link text, inclusive language). |
+| **Privacy before AI** | Email addresses, phone numbers, UPI IDs, card, PAN and Aadhaar numbers and the Brand Kit's **confidential terms** are replaced with placeholders before any AI call and put back in the results. Each check says what was removed. |
+| **Second opinion** | Every finding only the AI could judge goes to a second, independent AI review. Disagreement marks it *Needs human judgment* and routes the draft to a reviewer. |
 | **Explainable findings** | Every finding shows the rule, the source page, the ledger fact (owner, evidence, expiry), the method (*Code check*, *AI, verified by code*, *AI-assessed*), confidence and a fix. Highlights in the text and boxes on the image link to the findings. |
 | **Fixes** | Accept, edit or reject (with a reason) each finding. Accepted fixes go into a working copy; findings inside replaced text are resolved automatically. Re-check creates a new version. Locked phrases can never be removed by a fix. |
 | **Review workflow** | Submit routes the draft: claims, rejected serious findings, open major findings or AI uncertainty → reviewer; otherwise auto-approved by policy. Reviewer approves or requests changes (comment required). Comments, version history with diffs, approval record. |
+| **Check report** | A printable report for each version (scores, findings, decisions, approval record, how the check ran). *Print or save as PDF* from the browser. |
 | **Team page** | The brand manager can rename the three demo people and change their titles; the new names show everywhere at once. |
 | **Audit log** | Every check, fix, rejection, submission, approval and Brand Kit change, with who and when. |
 | **Transparency** | AI status shown on every page, "How it works" page with AI disclosure, per-call logging, and an accuracy report from our test set. |
@@ -32,10 +35,12 @@ draft (text / .docx / image)
   │
   ├─ 1. Read ─────────── text blocks; image resized, colours measured; AI reads image text + positions
   ├─ 2. Code checks ──── glossary, banned phrases, disclaimers, caps/emoji, readability, palette, contrast
-  ├─ 3. AI checks ────── claims (+ which ledger fact each is about), tone vs tone rules   [in parallel]
+  ├─ 3. AI checks ────── personal data + confidential terms removed first, then
+  │                      claims (+ which ledger fact each is about), tone vs tone rules   [in parallel]
   ├─ 4. Verify (code) ── AI quote must exist in the draft; rule ID must exist; numbers and expiry
   │                      compared with the ledger BY CODE; AI rewrites must keep locked phrases and
   │                      use only ledger numbers; low confidence → "needs human judgment"
+  ├─ 4b. Second opinion ─ AI-only findings re-checked by an independent AI review; disagreement → human
   └─ 5. Explain ──────── findings with rule, source, method, confidence and fix → saved as a version
 ```
 
@@ -55,13 +60,14 @@ app/
   seed.py            demo Brand Kit (Paisaleaf, fictional)
   kit.py             loads the Brand Kit for a check
   ai.py              LLM gateway (Gemini / OpenAI-compatible / fake for tests)
+  redact.py          removes personal data and confidential terms before AI calls
   colour.py          WCAG contrast and CIEDE2000
   textutil.py        sentence splitting, quote finding, readability, diffs
   checks/
     pipeline.py      runs every check, verifies AI output, builds the summary
     code_checks.py   glossary, pattern rules, disclaimers, caps/emoji, readability, alt text
     claims.py        claim detection and ledger verdicts (code decides)
-    ai_checks.py     the three AI prompts and their validation
+    ai_checks.py     the AI prompts (claims, tone, image, second opinion) and their validation
     image.py         palette and contrast checks
   templates/, static/
 tests/               unit tests, HTTP workflow tests, browser end-to-end test, fake AI answers
@@ -81,18 +87,24 @@ uvicorn app.main:app --reload
 ## Tests and accuracy
 
 ```bash
-python -m unittest discover -s tests -v       # 23 unit + HTTP workflow tests (no AI key needed)
+python -m unittest discover -s tests -v       # 27 unit + HTTP workflow tests (no AI key needed)
 python tests/e2e_flow.py http://localhost:8000 # full browser click-through (needs Playwright)
 python scripts/eval.py                         # accuracy on 30 labelled drafts → data/eval_results.json
 ```
 
-The tests include a **fake AI** that returns deliberately bad answers (made-up quotes, a rule that doesn't exist, a rewrite with a wrong interest rate, a prompt-injection draft) to prove that the verification code catches them.
+The tests include a **fake AI** that returns deliberately bad answers (made-up quotes, a rule that doesn't exist, a rewrite with a wrong interest rate, a prompt-injection draft) to prove that the verification code catches them. Other tests prove the AI never receives personal data, that a second-opinion disagreement sends a finding to a human, and that form posts from other websites are refused. GitHub Actions runs the tests on every push.
 
 **Accuracy, code checks only (no AI):** 100% of findings correct, 30 of 34 planted errors caught (88%). The 4 misses are the tone and meaning issues that need the AI (jargon, mocking tone, "instant" vs "1 working day"). The test set is small and was written by the team, so these numbers show the checks work as designed; they are not an independent benchmark. Run `scripts/eval.py` with a Gemini key to measure the AI checks.
 
 ## Deploy
 
 See **[DEPLOY.md](DEPLOY.md)**: Render (free) + Supabase (free) + Gemini (free tier), about 15 minutes.
+
+## Limits we know about
+
+- **No sign-in.** The role switcher lets judges try every role, so it is not access control: anyone using the demo can act as the reviewer or brand manager. Every action is still logged against the role, and form posts from other websites are refused. A real deployment would add sign-in (for example Supabase Auth) in front of the roles.
+- **Images go to the AI as they are.** Text inside an image can't be redacted before the AI reads it.
+- **Small test set.** 30 drafts written by the team; see above.
 
 ## Disclosures
 

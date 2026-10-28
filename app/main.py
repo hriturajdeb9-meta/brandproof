@@ -27,7 +27,8 @@ from .ai import AIGateway
 from .checks.image import normalise_image
 from .checks.pipeline import run_checks
 from .db import Database, now_iso
-from .kit import DIMENSION_LABELS, DIMENSIONS, load_kit
+from .redact import describe as describe_redactions
+from .kit import DIMENSION_LABELS, DIMENSIONS, load_kit, parse_terms
 from .seed import SAMPLE_EMAIL, SAMPLE_POST, seed_kit
 from .textutil import find_span, tidy_spaces, word_diff_html
 
@@ -123,6 +124,7 @@ def _activity(action: str) -> str:
 
 templates.env.filters["when"] = _when
 templates.env.filters["activity"] = _activity
+templates.env.filters["redacted"] = describe_redactions
 
 
 # --------------------------------------------------------------------------- setup
@@ -458,6 +460,12 @@ async def draft_page(request: Request):
                           "ORDER BY id DESC", (draft_id,))
         if approval:
             approval["detail_obj"] = json.loads(approval.get("detail") or "{}")
+    if request.url.path.endswith("/report"):
+        return render(request, "report.html", {
+            "draft": draft, "version": version, "n": n, "is_current": is_current, "findings": issues,
+            "supported": supported, "decisions": decisions, "comments": comments, "approval": approval,
+            "summary": version["summary_obj"], "now": now_iso(),
+        })
     role = role_of(request)
     ctx = {
         "draft": draft, "version": version, "n": n, "is_current": is_current, "findings": issues,
@@ -719,7 +727,7 @@ KIT_TABLES = {
 
 async def kit_page(request: Request):
     tab = request.query_params.get("tab", "rules")
-    if tab not in KIT_TABLES:
+    if tab not in KIT_TABLES and tab != "privacy":
         tab = "rules"
     kit = load_kit(db)
     edit_id = request.query_params.get("edit")
@@ -739,9 +747,10 @@ async def kit_page(request: Request):
     editing = None
     if edit_id:
         key = "id"
-        editing = next((r for r in rows[tab] if str(r.get(key)) == edit_id), None)
+        editing = next((r for r in rows.get(tab, []) if str(r.get(key)) == edit_id), None)
     return render(request, "kit.html", {"tab": tab, "rows": rows, "editing": editing, "kit_hash": kit.hash,
-                                        "fields": KIT_TABLES, "disclaimer": kit.disclaimer})
+                                        "fields": KIT_TABLES, "disclaimer": kit.disclaimer,
+                                        "private_terms": kit.private_terms})
 
 
 def _clean_row(table: str, form) -> dict:
@@ -821,6 +830,16 @@ async def kit_save(request: Request):
         return go(f"/kit?tab={table}", str(exc), "error")
     db.audit(f"kit.{table}.saved", who[0], who[1], None, {"row": {k: str(v)[:80] for k, v in row.items()}})
     return go(f"/kit?tab={table}", "Saved. New checks use it straight away.")
+
+
+async def kit_private_terms(request: Request):
+    need_role(request, "brand")
+    form = await read_form(request)
+    terms = parse_terms(str(form.get("terms") or "")[:4000])
+    db.set_meta("private_terms", "\n".join(terms))
+    who = actor(request)
+    db.audit("kit.private_terms.saved", who[0], who[1], None, {"count": len(terms)})
+    return go("/kit?tab=privacy", f"Saved {len(terms)} confidential term(s). They are removed before every AI call.")
 
 
 async def kit_delete(request: Request):
@@ -968,6 +987,7 @@ routes = [
     Route("/drafts", create_draft, methods=["POST"]),
     Route("/samples/{name}", create_sample, methods=["POST"]),
     Route("/drafts/{id:int}", draft_page),
+    Route("/drafts/{id:int}/report", draft_page),
     Route("/drafts/{id:int}/v/{n:int}/image", version_image),
     Route("/drafts/{id:int}/findings/{key}", decide, methods=["POST"]),
     Route("/drafts/{id:int}/discard", discard_working, methods=["POST"]),
@@ -977,6 +997,7 @@ routes = [
     Route("/drafts/{id:int}/comments", add_comment, methods=["POST"]),
     Route("/review", review_queue),
     Route("/kit", kit_page),
+    Route("/kit/private-terms", kit_private_terms, methods=["POST"]),
     Route("/kit/{table}/save", kit_save, methods=["POST"]),
     Route("/kit/{table}/delete", kit_delete, methods=["POST"]),
     Route("/kit/{table}/import", kit_import, methods=["POST"]),

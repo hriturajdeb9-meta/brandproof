@@ -10,7 +10,8 @@
   </div>
   <p class="muted">{{ draft.channel }} · by {{ draft.created_by }} · version {{ n }} of {{ draft.current_version }}
     {% if draft.goal %} · Goal: <i>{{ draft.goal }}</i>{% endif %}
-    {% if draft.locked_list %} · Locked: {% for p in draft.locked_list %}<span class="lock">🔒 {{ p }}</span>{% endfor %}{% endif %}</p>
+    {% if draft.locked_list %} · Locked: {% for p in draft.locked_list %}<span class="lock">🔒 {{ p }}</span>{% endfor %}{% endif %}
+    · <a href="/drafts/{{ draft.id }}/report?v={{ n }}">Check report (print or PDF)</a></p>
 </div>
 
 {% if not is_current %}
@@ -151,7 +152,9 @@
       <ul class="tight small">
         <li><b>{{ summary.ai.label }}</b>{% if summary.ai.enabled %}: {{ summary.ai.calls | selectattr('ok') | list | length }} of {{ summary.ai.calls | length }} AI calls succeeded{% set cached = summary.ai.calls | selectattr('cached') | list | length %}{% if cached %} ({{ cached }} from cache){% endif %}.{% endif %}</li>
         {% for c in summary.ai.calls %}{% if not c.ok %}<li class="warn-text">AI {{ c.purpose }} call failed: {{ c.error }}. Code checks still ran.</li>{% endif %}{% endfor %}
+        {% if summary.ai.enabled %}<li>{% if summary.redacted %}Removed before the AI saw the draft: <b>{{ summary.redacted | redacted }}</b>. They were put back in the results.{% else %}No personal data or confidential terms found to remove before the AI call.{% endif %}{% if summary.image %} Images are sent as they are.{% endif %}</li>{% endif %}
         {% if summary.stats.ai_proposed %}<li>AI proposed {{ summary.stats.ai_proposed }} item(s); code discarded {{ summary.stats.ai_discarded }} whose quoted words weren't in the draft or whose rule didn't exist.</li>{% endif %}
+        {% if summary.stats.second_checked %}<li>A second, independent AI check reviewed {{ summary.stats.second_checked }} AI-assessed finding(s){% if summary.stats.second_disagreed %} and disagreed with {{ summary.stats.second_disagreed }}, which now need human judgment{% else %} and agreed with all of them{% endif %}.</li>{% endif %}
         {% if summary.stats.code_added %}<li>Code patterns added {{ summary.stats.code_added }} claim(s) the AI missed.</li>{% endif %}
         {% for note in summary.notes %}<li>{{ note }}</li>{% endfor %}
         {% if summary.image and summary.image.colours %}<li>Image colours: {% for c in summary.image.colours[:5] %}<span class="swatch" style="background: {{ c.hex }}"></span>{{ c.hex }} ({{ c.share }}%) {% endfor %}</li>{% endif %}
