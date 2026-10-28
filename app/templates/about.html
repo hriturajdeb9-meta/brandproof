@@ -60,7 +60,7 @@
     <li><b>Demo data only.</b> Paisaleaf, its rules, facts and sample drafts are fictional. Please don't upload confidential material to this demo.</li>
     <li><b>Minimum data to the AI.</b> Only the draft being checked and the relevant rules and facts are sent, never the whole Brand Kit or other drafts.</li>
     <li><b>Storage.</b> Drafts, versions, decisions, comments and the audit log are stored in {{ 'PostgreSQL' if storage == 'postgres' else 'SQLite' }} on our server. Images are re-encoded (which strips camera metadata) before they are stored.</li>
-    <li><b>Roles.</b> This demo has no sign-in so judges can try every role. Each action is still recorded against the role that did it.</li>
+    <li><b>Roles.</b> This demo has no sign-in so judges can try every role. The role switcher is a convenience, not security: anyone using the demo can act as the reviewer or brand manager. Each action is still recorded against the role that did it, and forms posted from other websites are refused. A real deployment would put sign-in in front of these roles.</li>
     <li><b>Coming in Round 3:</b> personal data (emails, phone numbers) and confidential terms removed before any AI call, and serious AI findings double-checked.</li>
   </ul>
 </section>

@@ -10,11 +10,13 @@ import os
 import re
 from contextlib import asynccontextmanager
 from datetime import date
+from urllib.parse import urlsplit
 
 from markupsafe import Markup, escape
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
@@ -931,6 +933,24 @@ async def healthz(request: Request):
     return JSONResponse({"ok": True, "storage": db.kind, "ai": ai.label, "warning": db.warning})
 
 
+class SameOriginPosts:
+    """Refuse form posts sent from another site (CSRF). Browsers send an Origin header on every POST."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope["method"] == "POST":
+            headers = dict(scope["headers"])
+            origin = headers.get(b"origin", b"").decode("latin-1")
+            hosts = {headers.get(h, b"").decode("latin-1") for h in (b"host", b"x-forwarded-host")}
+            if origin and urlsplit(origin).netloc not in hosts:
+                log.warning("Refused cross-site POST to %s from %s", scope["path"], origin)
+                await PlainTextResponse("Cross-site form posts are not allowed.", status_code=403)(scope, receive, send)
+                return
+        await self.app(scope, receive, send)
+
+
 async def http_error(request: Request, exc: HTTPException):
     return render(request, "error.html", {"code": exc.status_code, "detail": exc.detail}, status=exc.status_code)
 
@@ -970,4 +990,4 @@ routes = [
 ]
 
 app = Starlette(routes=routes, lifespan=lifespan, exception_handlers={HTTPException: http_error, 500: server_error},
-                max_body_size=8 * 1024 * 1024)
+                max_body_size=8 * 1024 * 1024, middleware=[Middleware(SameOriginPosts)])

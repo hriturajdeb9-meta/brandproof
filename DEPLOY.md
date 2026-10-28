@@ -43,7 +43,7 @@ Brandproof creates its tables and loads the demo Brand Kit by itself on first st
    |---|---|
    | `GEMINI_API_KEY` | your key from step 2 |
    | `DATABASE_URL` | your Supabase URI from step 3 |
-   | `GEMINI_MODEL` | `gemini-2.5-flash` |
+   | `GEMINI_MODEL` | `gemini-3.5-flash` |
 4. **Health check path:** `/healthz`
 5. Click **Create Web Service** and wait for "Live" (3–5 minutes). Your link is `https://brandproof-xxxx.onrender.com`.
 
@@ -53,14 +53,14 @@ Brandproof creates its tables and loads the demo Brand Kit by itself on first st
 
 Open `https://<your-app>.onrender.com/healthz`. You should see:
 ```json
-{"ok": true, "storage": "postgres", "ai": "Google Gemini · gemini-2.5-flash", "warning": ""}
+{"ok": true, "storage": "postgres", "ai": "Google Gemini · gemini-3.5-flash", "warning": ""}
 ```
 - `storage` must be **postgres**. If it says sqlite with a warning, the `DATABASE_URL` is wrong (check the password and that you used the Session pooler string).
 - `ai` must name Gemini. If it says "AI off", the key variable name is wrong.
 
 Then on the home page click **Check the sample Instagram post**. The "How this check ran" box on the right should say the AI calls succeeded, and the banner should show numbered boxes around the orange text (contrast findings).
 
-If one Gemini model is busy or missing, Brandproof automatically tries `gemini-2.5-flash-lite` and then `gemini-flash-latest` (change the order with `GEMINI_FALLBACK_MODELS`).
+If one Gemini model is busy or missing, Brandproof automatically tries `gemini-3.5-flash-lite`, then `gemini-flash-lite-latest`, then `gemini-flash-latest` (change the order with `GEMINI_FALLBACK_MODELS`).
 
 ## 6. Keep it awake for the judges (important)
 
