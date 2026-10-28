@@ -9,6 +9,7 @@ from ..kit import DIMENSIONS, SEVERITIES, Kit
 from ..redact import Redactor
 from .ai_checks import ai_claims, ai_read_image, ai_tone, second_opinion
 from .claims import claim_findings
+from .common import overlaps
 from .code_checks import (check_alt_text, check_caps_and_emoji, check_pattern_rules, check_readability,
                           check_required_text, check_sensitive, check_terminology)
 from .image import check_palette, check_text_contrast, looks_like_photo, open_rgb
@@ -25,7 +26,7 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
     findings: list[dict] = []
     ai_calls: list[dict] = []
     notes: list[str] = []
-    stats = {"ai_proposed": 0, "ai_discarded": 0, "code_added": 0, "needs_human": 0}
+    stats = {"ai_proposed": 0, "ai_discarded": 0, "code_added": 0, "needs_human": 0, "ai_covered": 0}
     use_ai = ai.enabled
 
     with ThreadPoolExecutor(max_workers=3) as pool:
@@ -65,7 +66,11 @@ def run_checks(ai: AIGateway, kit: Kit, meta: dict, body: str, image: bytes | No
             if tinfo.get("rules_selected"):
                 notes.append(f"The Brand Kit is large, so the {tinfo.get('rules_sent')} rules most relevant to this "
                              "draft were sent to the AI (keyword retrieval).")
-            findings += tone
+            # a claim finding on the same words already asks for them to be rewritten
+            claim_hits = [f for f in findings if f["dimension"] == "claims" and f["severity"] != "ok"]
+            kept = [t for t in tone if not any(overlaps(t, c) for c in claim_hits)]
+            stats["ai_covered"] += len(tone) - len(kept)
+            findings += kept
             stats["ai_proposed"] += tinfo.get("ai_proposed", 0)
             stats["ai_discarded"] += tinfo.get("ai_discarded", 0)
             stats["needs_human"] += tinfo.get("needs_human", 0)

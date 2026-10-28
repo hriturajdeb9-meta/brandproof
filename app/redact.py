@@ -14,9 +14,10 @@ import re
 PATTERNS = [
     ("email", re.compile(r"(?<![\w.+-])[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,}(?![\w-])")),
     ("card", re.compile(r"(?<!\d)(?:\d[ -]?){12,18}\d(?!\d)")),
-    ("aadhaar", re.compile(r"(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)")),
+    # the extra look-arounds stop a match inside a longer group of numbers, e.g. "1234 5678 9012 3456"
+    ("aadhaar", re.compile(r"(?<!\d)(?<!\d[ -])[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?![ -]?\d)")),
     ("pan", re.compile(r"(?<![A-Za-z0-9])[A-Z]{5}\d{4}[A-Z](?![A-Za-z0-9])")),
-    ("phone", re.compile(r"(?<![\w+])(?:\+91[\s-]?|0)?[6-9]\d{4}[\s-]?\d{5}(?!\d)|(?<![\w+])\+\d{1,3}[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4}(?!\d)")),
+    ("phone", re.compile(r"(?<![\w+])(?<!\d[ -])(?:\+91[\s-]?|0)?[6-9]\d{4}[\s-]?\d{5}(?![ -]?\d)|(?<![\w+])\+\d{1,3}[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4}(?!\d)")),
 ]
 LABELS = {"email": "email address", "phone": "phone number", "card": "card number", "aadhaar": "Aadhaar number",
           "pan": "PAN", "confidential": "confidential term"}

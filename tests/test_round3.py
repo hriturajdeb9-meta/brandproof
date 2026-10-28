@@ -101,6 +101,10 @@ class RedactionTests(unittest.TestCase):
         self.assertFalse(luhn_ok("4111 1111 1111 1112"))
         self.assertIn("card", Redactor("Card 4111 1111 1111 1111").counts)
         self.assertNotIn("card", Redactor("Order 4111 1111 1111 1112").counts)
+        # part of a longer group of numbers is not an Aadhaar or phone number
+        self.assertEqual(Redactor("Order 4111 1111 1111 1112").masked, 0)
+        self.assertEqual(Redactor("Ref 98765 43210 12").masked, 0)
+        self.assertEqual(Redactor("Aadhaar 2345 6789 0123, call 98765 43210.").counts, {"aadhaar": 1, "phone": 1})
 
     def test_rupee_amounts_are_not_phone_numbers(self):
         self.assertEqual(Redactor("Start with ₹100. Insured up to ₹5,00,000. Rated 4.6★.").masked, 0)

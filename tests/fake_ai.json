@@ -63,6 +63,13 @@
       "problem": "Hallucinated quote",
       "suggestion": "",
       "confidence": "high"
+     },
+     {
+      "rule_id": "R-TON-04",
+      "quote": "GUARANTEED 12% returns",
+      "problem": "Shouty promise (already a prohibited claim).",
+      "suggestion": "",
+      "confidence": "high"
      }
     ]
    }
