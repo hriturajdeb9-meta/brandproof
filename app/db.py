@@ -30,6 +30,10 @@ SCHEMA_VERSION = "3"
 _acting: contextvars.ContextVar[tuple[int, int] | None] = contextvars.ContextVar("bp_acting", default=None)
 
 WS = "workspace_id INTEGER NOT NULL"
+# Round 2 tables whose shape changed (ai_calls and ai_cache are unchanged and kept as they are)
+ROUND2_TABLES = ("meta", "rules", "glossary", "facts", "palette", "drafts", "versions", "decisions", "comments", "audit")
+ROUND2_INDEXES = ("idx_versions_draft", "idx_decisions_draft", "idx_audit_draft", "idx_comments_draft")
+
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
@@ -406,10 +410,39 @@ class Database:
     def init_schema(self) -> None:
         pk = "SERIAL PRIMARY KEY" if self.kind == "postgres" else "INTEGER PRIMARY KEY AUTOINCREMENT"
         with self.as_system():
+            self._retire_round2_tables()
             for stmt in SCHEMA:
                 self.execute(stmt.replace("{pk}", pk))
             if self.kind == "postgres":
                 self._setup_rls()
+
+    def _columns(self, table: str) -> set[str] | None:
+        """Column names of a table, or None if it doesn't exist."""
+        with self.lock:
+            try:
+                cur = self._conn.cursor()
+                cur.execute(f"SELECT * FROM {table} LIMIT 0")
+                return {d[0] for d in cur.description or []}
+            except Exception:
+                return None
+
+    def _retire_round2_tables(self) -> None:
+        """A Round 2 database (no workspaces) can't be used by this schema, and CREATE TABLE IF NOT EXISTS would
+        leave its tables in place, so startup failed with "no such column: workspace_id". Rename those tables to
+        r2_<name> (nothing is deleted) so fresh ones are created and the demo workspace is seeded again."""
+        cols = self._columns("drafts")
+        if cols is None or "workspace_id" in cols:
+            return
+        for index in ROUND2_INDEXES:  # index names are global, so the new tables couldn't reuse them
+            self.execute(f"DROP INDEX IF EXISTS {index}")
+        for table in ROUND2_TABLES:
+            if self._columns(table) is not None:
+                if self._columns(f"r2_{table}") is not None:
+                    raise RuntimeError(f"Both {table} and r2_{table} exist; remove one before starting Brandproof.")
+                self.execute(f"ALTER TABLE {table} RENAME TO r2_{table}")
+        log.warning("Found a Round 2 database: its tables were renamed to r2_* and a new schema was created.")
+        self.warning = self.warning or ("This database came from Round 2. Its tables were kept as r2_* and the demo "
+                                        "workspace was created again.")
 
     def _setup_rls(self) -> None:
         """Install the restricted role and row-level-security policies (idempotent)."""
