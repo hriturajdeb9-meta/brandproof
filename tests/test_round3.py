@@ -101,6 +101,10 @@ class RedactionTests(unittest.TestCase):
         self.assertFalse(luhn_ok("4111 1111 1111 1112"))
         self.assertIn("card", Redactor("Card 4111 1111 1111 1111").counts)
         self.assertNotIn("card", Redactor("Order 4111 1111 1111 1112").counts)
+        # part of a longer group of numbers is not an Aadhaar or phone number
+        self.assertEqual(Redactor("Order 4111 1111 1111 1112").masked, 0)
+        self.assertEqual(Redactor("Ref 98765 43210 12").masked, 0)
+        self.assertEqual(Redactor("Aadhaar 2345 6789 0123, call 98765 43210.").counts, {"aadhaar": 1, "phone": 1})
 
     def test_rupee_amounts_are_not_phone_numbers(self):
         self.assertEqual(Redactor("Start with ₹100. Insured up to ₹5,00,000. Rated 4.6★.").masked, 0)
@@ -265,6 +269,26 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn("could not be read", r.text)
         self.assertEqual(c.get("/drafts/999999").status_code, 404)
         self.assertEqual(c.get("/kit/rules/R-NOPE-1").status_code, 404)
+
+
+class UpgradeTests(unittest.TestCase):
+    def test_round2_database_is_kept_and_replaced(self):
+        path = os.path.join(tempfile.mkdtemp(), "r2.db")
+        old = Database(sqlite_path=path)
+        old.execute("CREATE TABLE drafts (id INTEGER PRIMARY KEY, title TEXT)")  # Round 2 shape: no workspace_id
+        old.execute("INSERT INTO drafts (title) VALUES ('round 2 draft')")
+        old.execute("CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT)")
+        old.execute("CREATE INDEX idx_comments_draft ON drafts (title)")
+        old._conn.close()
+        db = Database(sqlite_path=path)
+        db.init_schema()  # used to fail with "no such column: workspace_id"
+        self.assertIn("workspace_id", db._columns("drafts"))
+        self.assertEqual(db.scalar("SELECT title FROM r2_drafts"), "round 2 draft")
+        self.assertIsNotNone(db._columns("r2_meta"))
+        self.assertIn("Round 2", db.warning)
+        db.init_schema()  # a second start changes nothing
+        self.assertEqual(db.scalar("SELECT COUNT(*) FROM r2_drafts"), 1)
+        db._conn.close()
 
 
 @unittest.skipUnless(os.environ.get("TEST_DATABASE_URL"), "set TEST_DATABASE_URL to an empty PostgreSQL database")

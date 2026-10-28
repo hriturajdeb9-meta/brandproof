@@ -132,6 +132,9 @@ class AIVerificationTests(unittest.TestCase):
         self.assertIn("rejected by code", claim["fix_note"])
         low = [f for f in r["findings"] if f["rule_id"] == "R-TON-01" and f["method"] == "ai"]
         self.assertTrue(low and low[0]["needs_human"])
+        # a tone note on words a claim finding already covers is left out
+        self.assertFalse([f for f in r["findings"] if f["rule_id"] == "R-TON-04"])
+        self.assertEqual(stats["ai_covered"], 1)
 
     def test_image_text_contrast_and_alt_suggestion(self):
         r = run(SAMPLE_POST["body"], provider="fake", image=BANNER)
