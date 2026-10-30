@@ -1,0 +1,20 @@
+# Free Render services sleep after 15 minutes without visitors, and the next visitor waits about a minute.
+# This opens the health page every 10 minutes so the live demo stays awake during judging.
+# (GitHub may start scheduled runs a few minutes late; that is fine.)
+name: keep-awake
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Open the live site
+        run: |
+          for i in 1 2 3; do
+            if curl -fsS --max-time 90 https://brandproof-wo96.onrender.com/healthz; then echo; exit 0; fi
+            sleep 10
+          done
+          echo "Site did not answer"; exit 1
