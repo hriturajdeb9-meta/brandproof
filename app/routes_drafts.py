@@ -253,6 +253,10 @@ async def create_draft(request: Request):
             return go("/drafts/new", "That image could not be read. Use PNG, JPG or WebP.", "error")
     if not body.strip() and not image:
         return go("/drafts/new", "Add some text, a PDF or Word file, or an image to check.", "error")
+    if title == "Untitled draft":  # no title given: name it after the file or the first words
+        first = " ".join(body.split()[:8])
+        title = (source_name or (first[:60] + ("…" if len(first) > 60 or len(body.split()) > 8 else "")) or
+                 (getattr(form.get("image"), "filename", "") or "Image draft"))[:140]
     truncated = len(body) > MAX_TEXT
     body = body[:MAX_TEXT]
     alt = (form.get("alt") or "").strip()[:500]

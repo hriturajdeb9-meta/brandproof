@@ -273,6 +273,17 @@ class WorkflowTests(unittest.TestCase):
         r = a.post("/signin", data={"email": "asha@example.com", "password": "wrong-password"})
         self.assertIn("Wrong email or password", r.text)
 
+    def test_demo_logins_shown_and_working(self):
+        from starlette.testclient import TestClient
+        t = TestClient(self.main.app)
+        page = t.get("/signin").text
+        self.assertIn("meera@demo.brandproof", page)
+        self.assertIn("demo2026", page)
+        r = t.post("/signin", data={"email": "meera@demo.brandproof", "password": "demo2026"})
+        self.assertIn("Signed in to the demo as Meera", r.text)
+        r = t.post("/signin", data={"email": "meera@demo.brandproof", "password": "nope"})
+        self.assertIn("demo password", r.text)
+
     def test_bad_input_is_handled(self):
         c = self.client
         r = c.post("/drafts", data={"title": "x", "body": "   "})

@@ -475,3 +475,15 @@ main.landing { padding-top: 0; }
 .fc { border-radius: 14px; padding: 14px 16px; }
 .fc h3 { font-size: 1.08rem; }
 @media (max-width: 600px) { .stepper li { font-size: 0; padding: 4px; } .stepper li::before { font-size: .72rem; } .stepper li.now { font-size: .8rem; padding-right: 10px; } }
+.narrow { max-width: 880px; margin-left: auto; margin-right: auto; }
+.examples { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: -4px; }
+.chip-btn { border: 1px solid var(--line); background: var(--soft); border-radius: 20px; padding: 6px 12px; font: inherit; font-size: .88rem; font-weight: 600; cursor: pointer; color: var(--ink); }
+.chip-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.chip-btn:active { transform: scale(.96); }
+.drop { border: 2px dashed #C9D2E3; border-radius: 12px; padding: 14px; background: var(--soft); flex-direction: column; gap: 2px; }
+.drop:hover { border-color: var(--accent); }
+.drop input { margin-top: 6px; background: #fff; }
+.opts { border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; }
+.opts summary { font-weight: 600; color: var(--ink2); }
+.opts[open] { display: flex; flex-direction: column; gap: 12px; }
+textarea#body { font-size: 1.05rem; }

@@ -15,6 +15,15 @@
     setTimeout(close, t.classList.contains("error") ? 9000 : 5000);
   });
 
+  // "Try an example" chips on the new-draft page.
+  document.querySelectorAll("[data-fill]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var body = document.getElementById("body"), title = document.getElementById("title");
+      if (body) { body.value = b.dataset.fill; body.focus(); }
+      if (title && !title.value) title.value = b.dataset.title || "";
+    });
+  });
+
   // Close the "More" menu when clicking elsewhere.
   document.addEventListener("click", function (e) {
     document.querySelectorAll("details.more[open]").forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute("open"); });

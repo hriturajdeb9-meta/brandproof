@@ -38,6 +38,13 @@ def rules_with_tests(ws: int) -> list[dict]:
         tests[(v["rule_id"], v["version"])] = json.loads(v["tests"] or "{}")
     for r in rules:
         r["tests"] = tests.get((r["id"], r.get("version") or 1))
+        if r["tests"] is None and r.get("method") == "code":  # e.g. seeded rules: run their example tests once
+            try:
+                r["tests"] = run_rule_tests(ws, r, use_ai=False)
+                S.db.execute("UPDATE rule_versions SET tests = ? WHERE workspace_id = ? AND rule_id = ? AND version = ?",
+                             (json.dumps(r["tests"]), ws, r["id"], r.get("version") or 1))
+            except Exception:
+                pass
         r["built_in"] = BUILT_IN.get(r["id"])
     return rules
 

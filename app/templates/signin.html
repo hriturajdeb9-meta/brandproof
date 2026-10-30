@@ -60,6 +60,11 @@
       <button class="btn" type="submit" name="role" value="{{ key }}"><span class="av av-{{ key }}">{{ p.name[0] }}</span> {{ p.name }} · {{ ROLES[key].label }}</button>
       {% endfor %}
     </form>
+    <h3>Demo logins</h3>
+    <table class="table small">
+      <thead><tr><th>Role</th><th>Email</th><th>Password</th></tr></thead>
+      <tbody>{% for key, p in demo_people.items() %}<tr><td>{{ ROLES[key].label }}</td><td class="mono">{{ p.email }}</td><td class="mono">{{ demo_password }}</td></tr>{% endfor %}</tbody>
+    </table>
     <p class="small muted">Everyone shares the demo, so don't put anything private in it.</p>
   </aside>
 </div>
