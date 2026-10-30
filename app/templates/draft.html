@@ -25,7 +25,33 @@
 {% elif role == 'reviewer' %}
 <div class="banner info">This draft hasn't been submitted yet. Reviewers can comment; the creator fixes and submits.</div>
 {% else %}
-<div class="banner next"><b>Next step:</b> work through the findings on the right (accept, edit or reject each), click <b>Re-check</b>, then <b>Submit</b>.</div>
+{% set fixable = findings | selectattr('key', 'in', findings | map(attribute='key') | reject('in', decisions) | list) | selectattr('fix') | list %}
+{% set fixable = fixable | selectattr('fix.type', 'in', ['replace', 'remove', 'append', 'alt']) | list %}
+<section class="nextbar">
+  <ol class="stepper" aria-label="Progress">
+    <li class="done">Checked</li>
+    <li class="{{ 'now' if not draft.working_dirty and (fixable or open_blockers) else 'done' }}">Fix</li>
+    <li class="{{ 'now' if draft.working_dirty else '' }}">Re-check</li>
+    <li class="{{ 'now' if not draft.working_dirty and not fixable and not open_blockers else '' }}">Submit</li>
+  </ol>
+  <div class="nextbar-do">
+  {% if not can_edit %}
+    <p>This draft hasn't been submitted yet. {% if is_demo %}Switch to {{ roles.creator.name }} to fix it.{% endif %}</p>
+  {% elif draft.working_dirty %}
+    <p><b>Your fixes are ready.</b> Re-check to confirm they solved the problems.</p>
+    <form method="post" action="/drafts/{{ draft.id }}/recheck" data-once><input type="hidden" name="base" value="{{ draft.current_version }}"><button class="btn btn-primary btn-lg" type="submit">↻ Re-check now</button></form>
+  {% elif fixable %}
+    <p><b>{{ findings | length }} finding{{ 's' if findings|length != 1 }}.</b> Accept all {{ fixable | length }} suggested fix{{ 'es' if fixable|length != 1 }} in one click, or go through them one by one below.</p>
+    <form method="post" action="/drafts/{{ draft.id }}/fix-all" data-once><input type="hidden" name="base" value="{{ draft.current_version }}"><button class="btn btn-primary btn-lg" type="submit">✨ Fix all &amp; re-check</button></form>
+  {% elif open_blockers %}
+    <p><b>{{ open_blockers | length }} blocker{{ 's' if open_blockers|length != 1 }} left</b> that need a change in the design or a reason. Use “I'll fix it” or “Reject” on each below{% if summary.image %}, or upload a fixed image under “Edit the draft yourself”{% endif %}.</p>
+    {% if is_demo and version.image %}<form method="post" action="/drafts/{{ draft.id }}/recheck" data-once><input type="hidden" name="base" value="{{ draft.current_version }}"><input type="hidden" name="sample_image" value="fixed"><button class="btn btn-primary btn-lg" type="submit">🖼 Use the corrected banner &amp; re-check</button></form>{% endif %}
+  {% else %}
+    <p><b>Ready to submit.</b> Drafts with claims go to a reviewer; clean ones are approved automatically.</p>
+    <form method="post" action="/drafts/{{ draft.id }}/submit" data-once><button class="btn btn-primary btn-lg" type="submit">Submit v{{ n }} →</button></form>
+  {% endif %}
+  </div>
+</section>
 {% endif %}
 
 <section class="scores" aria-label="Scores by dimension">

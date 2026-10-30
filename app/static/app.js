@@ -1,5 +1,25 @@
 // Small progressive enhancements. Every action also works without JavaScript.
 (function () {
+  // Haptics: a short tap on phones that support it, on every button and switch.
+  var buzz = function (ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 8); } catch (e) {} };
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest("button, .btn, .who-btn, .feat, .draft-list a, summary");
+    if (t) buzz(t.classList.contains("btn-primary") ? 14 : 8);
+  }, true);
+
+  // Toasts slide away by themselves.
+  document.querySelectorAll(".toast").forEach(function (t) {
+    if (t.classList.contains("error")) buzz([20, 60, 20]);
+    var close = function () { t.classList.add("hide"); setTimeout(function () { t.parentNode && t.parentNode.remove(); }, 260); };
+    var x = t.querySelector(".toast-x"); if (x) x.addEventListener("click", close);
+    setTimeout(close, t.classList.contains("error") ? 9000 : 5000);
+  });
+
+  // Close the "More" menu when clicking elsewhere.
+  document.addEventListener("click", function (e) {
+    document.querySelectorAll("details.more[open]").forEach(function (d) { if (!d.contains(e.target)) d.removeAttribute("open"); });
+  });
+
   // Show a "checking" overlay for slow forms and stop double submits.
   document.querySelectorAll("form[data-busy]").forEach(function (form) {
     form.addEventListener("submit", function () {

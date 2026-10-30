@@ -5,41 +5,24 @@
     {% if f.n %}<span class="num">{{ f.n }}</span>{% endif %}
     <span class="tag sev-{{ f.severity }}">{{ f.severity | capitalize }}</span>
     <span class="tag dim">{{ DIMENSION_LABELS.get(f.dimension, f.dimension) }}</span>
-    {% if f.verdict %}<span class="tag v-{{ f.verdict }}">{{ f.verdict | capitalize }}</span>{% endif %}
-    <span class="tag m-{{ f.method | replace('+', '') }}" title="How this was found">{{ f.method_label }}</span>
-    {% if f.needs_human %}<span class="tag human">Needs human judgment</span>{% endif %}
     {% if f.target == 'image' %}<span class="tag where">In the image</span>{% elif f.target == 'alt' %}<span class="tag where">Alt text</span>{% endif %}
     {% if f.page %}<span class="tag where">Page {{ f.page }}</span>{% endif %}
+    {% if f.needs_human %}<span class="tag human" title="The AI was unsure, or a second AI disagreed: a person decides">Needs a human</span>{% endif %}
+    <span class="tag m-{{ f.method | replace('+', '') }} fc-method" title="How this was found">{{ f.method_label }}</span>
   </div>
   <h3>{{ f.title }}</h3>
-  {% if f.quote and f.target != 'draft' %}<blockquote>“{{ f.quote }}”</blockquote>{% endif %}
+  {% if f.quote and f.target != 'draft' and f.quote not in f.title %}<blockquote>“{{ f.quote }}”</blockquote>{% endif %}
   <p class="why">{{ f.message }}</p>
-  <dl class="fc-meta">
-    <dt>Rule</dt>
-    <dd><a href="/kit/rules/{{ f.rule_id }}"><b>{{ f.rule_id }}</b></a> {{ f.rule_title }}{% if f.source %} <span class="muted">· {{ f.source }}</span>{% endif %}</dd>
-    {% for e in f.evidence %}
-      {% if e.id %}
-      <dt>Ledger</dt>
-      <dd><b>{{ e.id }}</b> “{{ e.statement }}” <span class="muted">· owner {{ e.owner }} · valid until {{ e.valid_until }}{% if e.expired %} <span class="tag sev-major">expired</span>{% endif %} · evidence: {{ e.evidence }}</span></dd>
-      {% else %}
-      <dt>{{ e.label }}</dt>
-      <dd>{% if e.value is string and e.value.startswith('#') and e.value|length == 7 %}<span class="swatch" style="background: {{ e.value }}"></span>{% endif %}{{ e.value }}</dd>
-      {% endif %}
-    {% endfor %}
-    {% if f.fix %}
-      <dt>Fix</dt>
-      <dd>
-        {% if f.fix.type == 'replace' %}Replace with <span class="fix">{{ f.fix.text }}</span>
-        {% elif f.fix.type == 'remove' %}Remove “{{ f.fix.find }}”
-        {% elif f.fix.type == 'append' %}Add <span class="fix">{{ f.fix.text }}</span>
-        {% elif f.fix.type == 'alt' %}Alt text: <span class="fix">{{ f.fix.text }}</span>
-        {% else %}{{ f.fix.text }}{% endif %}
-        {% if f.fix_note %}<div class="note">{{ f.fix_note }}</div>{% endif %}
-      </dd>
-    {% endif %}
-    {% if f.method != 'code' %}<dt>Confidence</dt><dd>{{ f.confidence | capitalize }}</dd>{% endif %}
-    {% if f.second_opinion %}<dt>2nd opinion</dt><dd>{% if f.second_opinion.agree %}✓ Agreed{% elif f.second_opinion.agree is sameas false %}✕ Disagreed{% else %}? Unsure{% endif %}{% if f.second_opinion.reason %}: {{ f.second_opinion.reason }}{% endif %} <span class="muted">· {{ f.second_opinion.model }}</span></dd>{% endif %}
-  </dl>
+  {% if f.fix and not d %}
+  <div class="fixbox">
+    <span class="fixbox-label">Suggested fix</span>
+    {% if f.fix.type == 'replace' %}Replace with <span class="fix">{{ f.fix.text }}</span>
+    {% elif f.fix.type == 'remove' %}Remove “{{ f.fix.find }}”
+    {% elif f.fix.type == 'append' %}Add <span class="fix">{{ f.fix.text }}</span>
+    {% elif f.fix.type == 'alt' %}Alt text: <span class="fix">{{ f.fix.text }}</span>
+    {% else %}{{ f.fix.text }}{% endif %}
+  </div>
+  {% endif %}
   {% if d %}
     <div class="decision d-{{ d.action }}">
       {% if d.action == 'accept' %}✓ Fix accepted by {{ d.actor }}
@@ -52,29 +35,48 @@
     <div class="fc-actions">
       <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" data-once>
         <input type="hidden" name="action" value="accept">
-        <button class="btn btn-small btn-primary" type="submit">{% if f.fix and f.fix.type in ('replace', 'remove', 'append', 'alt') %}Accept fix{% else %}Will fix{% endif %}</button>
+        <button class="btn btn-small btn-primary" type="submit">{% if f.fix and f.fix.type in ('replace', 'remove', 'append', 'alt') %}✓ Accept fix{% else %}✓ I'll fix it{% endif %}</button>
       </form>
       {% if f.fix and f.fix.type in ('replace', 'append', 'alt') %}
       <details class="inline">
         <summary class="btn btn-small">Edit</summary>
-        <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" class="mini-form">
+        <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" class="mini-form" data-once>
           <input type="hidden" name="action" value="edit">
           <label class="sr" for="e-{{ f.key }}">Your wording</label>
           <textarea id="e-{{ f.key }}" name="text" rows="2">{{ f.fix.text }}</textarea>
-          <button class="btn btn-small btn-primary" type="submit">Apply my wording</button>
+          <button class="btn btn-small btn-primary" type="submit">Use my wording</button>
         </form>
       </details>
       {% endif %}
       <details class="inline">
         <summary class="btn btn-small">Reject</summary>
-        <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" class="mini-form">
+        <form method="post" action="/drafts/{{ draft.id }}/findings/{{ f.key }}" class="mini-form" data-once>
           <input type="hidden" name="action" value="reject">
-          <label for="r-{{ f.key }}">Why is this finding wrong or not needed?</label>
+          <label for="r-{{ f.key }}">Why is this wrong or not needed?</label>
           <input id="r-{{ f.key }}" name="reason" required minlength="3" maxlength="300" placeholder="e.g. Approved by legal for this campaign">
           <button class="btn btn-small" type="submit">Reject with reason</button>
         </form>
       </details>
     </div>
   {% endif %}
+  <details class="fc-why">
+    <summary>Why? Rule, source and evidence</summary>
+    <dl class="fc-meta">
+      <dt>Rule</dt>
+      <dd><a href="/kit/rules/{{ f.rule_id }}"><b>{{ f.rule_id }}</b></a> {{ f.rule_title }}{% if f.source %} <span class="muted">· {{ f.source }}</span>{% endif %}</dd>
+      {% for e in f.evidence %}
+        {% if e.id %}
+        <dt>Ledger</dt>
+        <dd><b>{{ e.id }}</b> “{{ e.statement }}” <span class="muted">· owner {{ e.owner }} · valid until {{ e.valid_until }}{% if e.expired %} <span class="tag sev-major">expired</span>{% endif %} · evidence: {{ e.evidence }}</span></dd>
+        {% else %}
+        <dt>{{ e.label }}</dt>
+        <dd>{% if e.value is string and e.value.startswith('#') and e.value|length == 7 %}<span class="swatch" style="background: {{ e.value }}"></span>{% endif %}{{ e.value }}</dd>
+        {% endif %}
+      {% endfor %}
+      <dt>Found by</dt><dd>{{ f.method_label }}{% if f.method != 'code' %} · confidence {{ f.confidence }}{% endif %}</dd>
+      {% if f.second_opinion %}<dt>2nd opinion</dt><dd>{% if f.second_opinion.agree %}✓ Agreed{% elif f.second_opinion.agree is sameas false %}✕ Disagreed{% else %}? Unsure{% endif %}{% if f.second_opinion.reason %}: {{ f.second_opinion.reason }}{% endif %} <span class="muted">· {{ f.second_opinion.model }}</span></dd>{% endif %}
+      {% if f.fix_note %}<dt>About the fix</dt><dd>{{ f.fix_note }}</dd>{% endif %}
+    </dl>
+  </details>
 </article>
 {%- endmacro %}

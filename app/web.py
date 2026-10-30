@@ -65,6 +65,7 @@ ACTIVITY = {
     "finding.edit": "edited a fix",
     "finding.reject": "rejected a finding",
     "finding.acknowledge": "will fix it in the design",
+    "finding.accept_all": "accepted all suggested fixes",
     "finding.superseded": "resolved a finding with another fix",
     "version.created": "saved a new version",
     "working.discarded": "discarded working changes",
@@ -188,7 +189,7 @@ def render(request: Request, name: str, ctx: dict | None = None, status: int = 2
     base = {
         "c": c, "role": c.role if c else None, "roles": roles,
         "persona": {"name": c.name if c else "", "label": c.title if c else ""},
-        "is_demo": bool(c and c.is_demo), "demo_people": auth.DEMO_PEOPLE,
+        "is_demo": bool(c and c.is_demo), "demo_people": auth.DEMO_PEOPLE, "demo_password": auth.DEMO_PASSWORD,
         "ai_label": S.ai.label, "ai_on": S.ai.enabled, "storage": S.db.kind, "rls": S.db.rls,
         "storage_warning": S.db.warning, "review_count": review_count, "app_version": APP_VERSION,
         "STATUS": STATUS, "DIMENSION_LABELS": DIMENSION_LABELS, "DIMENSIONS": DIMENSIONS, "ROLES": auth.ROLES,

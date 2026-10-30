@@ -2,81 +2,85 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#13213C">
   <title>{% block title %}Brandproof{% endblock %} · Brandproof</title>
   <meta name="description" content="Brandproof checks marketing content against brand rules and approved facts before it is published.">
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/style.css?v={{ app_version }}">
+  <link rel="stylesheet" href="/static/style.css?v={{ app_version }}.2">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   <a class="skip" href="#main">Skip to content</a>
   <header class="top">
     <div class="wrap top-in">
       <a class="logo" href="/" aria-label="Brandproof home">
-        <svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="5" y="3" width="18" height="24" rx="3" fill="#fff"/><rect x="9" y="9" width="10" height="2" rx="1" fill="#C9D2E3"/><rect x="9" y="14" width="7" height="2" rx="1" fill="#F6B9B3"/><circle cx="22" cy="22" r="7.5" fill="#0E8A6A" stroke="#13213C" stroke-width="1.5"/><path d="M18.6 22l2.4 2.4 4.4-4.6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><rect x="5" y="3" width="18" height="24" rx="3" fill="#fff"/><rect x="9" y="9" width="10" height="2" rx="1" fill="#C9D2E3"/><rect x="9" y="14" width="7" height="2" rx="1" fill="#F6B9B3"/><circle cx="22" cy="22" r="7.5" fill="#0E8A6A" stroke="#13213C" stroke-width="1.5"/><path d="M18.6 22l2.4 2.4 4.4-4.6" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span>Brand<b>proof</b></span>
       </a>
       {% if c and c.ws %}
+      <input type="checkbox" id="navtoggle" class="nav-toggle" aria-label="Menu">
+      <label for="navtoggle" class="nav-burger" aria-hidden="true"><span></span><span></span><span></span></label>
       <nav class="nav" aria-label="Main">
         <a href="/" {% if path == '/' or path.startswith('/drafts') %}aria-current="page"{% endif %}>Drafts</a>
         <a href="/review" {% if path == '/review' %}aria-current="page"{% endif %}>Review{% if review_count %} <span class="count">{{ review_count }}</span>{% endif %}</a>
-        <a href="/kit" {% if path.startswith('/kit') %}aria-current="page"{% endif %}>Brand Kit</a>
-        {% if role == 'brand' %}<a href="/guidelines" {% if path.startswith('/guidelines') %}aria-current="page"{% endif %}>Import guideline</a>{% endif %}
+        <a href="/kit" {% if path.startswith('/kit') or path.startswith('/guidelines') %}aria-current="page"{% endif %}>Brand Kit</a>
         <a href="/insights" {% if path.startswith('/insights') %}aria-current="page"{% endif %}>Insights</a>
-        <a href="/audit" {% if path == '/audit' %}aria-current="page"{% endif %}>Audit log</a>
-        <a href="/team" {% if path == '/team' %}aria-current="page"{% endif %}>Team</a>
-        <a href="/about" {% if path == '/about' %}aria-current="page"{% endif %}>How it works</a>
+        <details class="more">
+          <summary {% if path in ('/audit', '/team', '/about', '/workspaces') %}aria-current="page"{% endif %}>More</summary>
+          <div class="more-menu">
+            {% if role == 'brand' %}<a href="/guidelines">Import a guideline</a>{% endif %}
+            <a href="/team">Team &amp; roles</a>
+            <a href="/audit">Audit log</a>
+            <a href="/about">How it works</a>
+            <a href="/workspaces">Workspaces</a>
+            {% if c.user.auth != 'demo' %}<form method="post" action="/signout"><button type="submit">Sign out</button></form>
+            {% else %}<a href="/signin">Sign in / create workspace</a>{% endif %}
+          </div>
+        </details>
       </nav>
       {% endif %}
       {% if is_demo %}
-      <form class="roles" method="post" action="/demo/as" aria-label="Switch demo person">
+      <form class="who" method="post" action="/demo/as" aria-label="Switch demo person">
         <input type="hidden" name="back" value="{{ path }}">
-        <span class="roles-label">You are</span>
         {% for key, r in roles.items() %}
-        <button type="submit" name="role" value="{{ key }}" class="role-btn{% if key == role %} on{% endif %}" title="{{ r.about }}" aria-pressed="{{ 'true' if key == role else 'false' }}">
-          <span class="av av-{{ key }}">{{ (r.name or '?')[0] }}</span><span class="rn">{{ r.name }}<small>{{ r.label }}</small></span>
+        <button type="submit" name="role" value="{{ key }}" class="who-btn{% if key == role %} on{% endif %}" title="{{ r.name }} · {{ r.label }}: {{ r.about }}" aria-pressed="{{ 'true' if key == role else 'false' }}">
+          <span class="av av-{{ key }}">{{ (r.name or '?')[0] }}</span><span class="who-name">{{ r.name }}<small>{{ ROLES[key].label }}</small></span>
         </button>
         {% endfor %}
       </form>
-      {% elif c %}
-      <div class="roles user-menu">
+      {% elif c and c.ws %}
+      <div class="who">
         {% if c.memberships | length > 1 %}
         <form method="post" action="/workspaces/switch" class="ws-switch">
           <label class="sr" for="wsel">Workspace</label>
           <select id="wsel" name="workspace" onchange="this.form.submit()">
             {% for m in c.memberships %}<option value="{{ m.workspace_id }}" {% if m.workspace_id == c.ws %}selected{% endif %}>{{ m.name }}</option>{% endfor %}
           </select>
-          <noscript><button class="btn btn-small" type="submit">Go</button></noscript>
         </form>
         {% endif %}
-        <span class="role-btn on" title="{{ ROLES[role].can if role else '' }}"><span class="av av-{{ role or 'system' }}">{{ c.name[0] }}</span><span class="rn">{{ c.name }}<small>{{ c.title or 'No workspace yet' }}</small></span></span>
-        <form method="post" action="/signout"><button class="btn btn-small btn-ghost" type="submit">Sign out</button></form>
+        <span class="who-btn on"><span class="av av-{{ role or 'system' }}">{{ c.name[0] }}</span><span class="who-name">{{ c.name }}<small>{{ ROLES[role].label if role else '' }}</small></span></span>
       </div>
       {% endif %}
     </div>
   </header>
-  <div class="demo-bar">
-    <div class="wrap demo-in">
-      {% if is_demo %}
-      <span>Public demo workspace for <b>Paisaleaf</b>, a fictional savings app. Switch people at the top right, or <a href="/signup">create your own workspace</a> · <a href="/signin">sign in</a>.</span>
-      {% elif c and c.ws %}
-      <span>Workspace <b>{{ c.ws_name }}</b> · you are a <b>{{ ROLES[role].label | lower }}</b> · <a href="/workspaces">workspaces</a></span>
-      {% else %}
-      <span>Brandproof checks content against your brand rules before it is published.</span>
-      {% endif %}
-      <span class="pill {% if ai_on %}pill-on{% else %}pill-off{% endif %}" title="AI is used only where judgment is needed. Every AI answer is checked by code.">{{ ai_label }}</span>
-    </div>
-  </div>
+  {% if is_demo and path != '/' %}
+  <div class="demo-bar"><div class="wrap demo-in">
+    <span>🎭 Public demo · <b>Paisaleaf</b> (fictional savings app). You are <b>{{ persona.name }}</b>, {{ ROLES[role].label | lower }}. Switch person at the top.</span>
+    <span class="pill {% if ai_on %}pill-on{% else %}pill-off{% endif %}">{{ 'AI on' if ai_on else 'AI off' }}</span>
+  </div></div>
+  {% elif c and c.ws and not is_demo %}
+  <div class="demo-bar"><div class="wrap demo-in"><span>Workspace <b>{{ c.ws_name }}</b> · you are a <b>{{ ROLES[role].label | lower }}</b></span><span class="pill {% if ai_on %}pill-on{% else %}pill-off{% endif %}">{{ 'AI on' if ai_on else 'AI off' }}</span></div></div>
+  {% endif %}
   {% if storage_warning %}<div class="wrap"><div class="flash error">{{ storage_warning }}</div></div>{% endif %}
-  {% if flash %}<div class="wrap"><div class="flash {{ flash_kind }}" role="status">{{ flash }}</div></div>{% endif %}
-  <main id="main" class="wrap">
+  {% if flash %}<div class="toast-wrap"><div class="toast {{ flash_kind }}" role="status"><span>{{ flash }}</span><button type="button" class="toast-x" aria-label="Close">×</button></div></div>{% endif %}
+  <main id="main" class="{% block main_class %}wrap{% endblock %}">
     {% block content %}{% endblock %}
   </main>
   <footer class="wrap foot">
     <span>Brandproof · TechCircuit Hackathon 2026 · Team DIBBANKUR</span>
-    <span><a href="/about#ai">AI disclosure</a> · <a href="/about#data">Data &amp; privacy</a> · storage: {{ storage }}{% if rls %} with row-level security{% endif %}</span>
+    <span><a href="/about">How it works</a> · <a href="/about#ai">AI disclosure</a> · <a href="/about#data">Privacy</a></span>
   </footer>
-  <script src="/static/app.js?v={{ app_version }}"></script>
+  <script src="/static/app.js?v={{ app_version }}.2"></script>
 </body>
 </html>

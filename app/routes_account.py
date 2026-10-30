@@ -54,6 +54,12 @@ async def signin(request: Request):
     password = form.get("password") or ""
     if not S.throttle.allow("in:" + _client(request)) or not S.throttle.allow("in:" + email_raw):
         return go("/signin", "Too many sign-in attempts. Wait five minutes and try again.", "error")
+    demo_role = next((r for r, p in auth.DEMO_PEOPLE.items() if p["email"] == email_raw), None)
+    if demo_role:  # the public demo logins shown on the sign-in page
+        if password != auth.DEMO_PASSWORD:
+            return go(f"/signin?email={email_raw}", f"The demo password is {auth.DEMO_PASSWORD}.", "error")
+        set_session(request, auth.demo_user_id(S.db, demo_role), S.demo_ws)
+        return go("/", f"Signed in to the demo as {auth.DEMO_PEOPLE[demo_role]['name']}.")
     try:
         email = auth.clean_email(email_raw)
         if not password:

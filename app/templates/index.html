@@ -1,87 +1,111 @@
 {% extends "base.html" %}
-{% block title %}Drafts{% endblock %}
+{% block title %}{% if is_demo %}Check content before it goes live{% else %}Drafts{% endif %}{% endblock %}
+{% block main_class %}{% if is_demo %}landing{% else %}wrap{% endif %}{% endblock %}
 {% block content %}
 {% if is_demo %}
-<section class="hero">
-  <div class="hero-text">
-    <h1>Check content before it's published.</h1>
-    <p class="lead">Brandproof checks a draft against Paisaleaf's brand rules and approved facts, explains every problem with its source, suggests a fix and sends only risky drafts to a reviewer.</p>
-    <ol class="steps">
-      <li><b>Check a draft.</b> Try the sample post, or paste your own. The check runs in the background, so the page never freezes.</li>
-      <li><b>Fix it.</b> Accept, edit or reject each finding, then re-check.</li>
-      <li><b>Submit.</b> Drafts with claims go to {{ roles.reviewer.name }} ({{ roles.reviewer.label }}). Switch to that person at the top right to approve and download the approval record.</li>
-    </ol>
-    <p class="small muted">Also try: <a href="/insights">Insights &amp; Clarity Radar</a> · {% if role == 'brand' %}<a href="/guidelines">Import a guideline</a>{% else %}Import a guideline (as {{ roles.brand.name }}){% endif %} · <a href="/about">How it works</a></p>
-  </div>
-  <div class="hero-cta card">
-    <h2>Try it in 30 seconds</h2>
-    {% if role == 'reviewer' %}
-      <p class="muted small">You are {{ persona.name }}, a reviewer. Switch to <b>{{ roles.creator.name }} ({{ roles.creator.label }})</b> at the top right to create drafts, or open the review queue.</p>
-      <a class="btn" href="/review">Open the review queue</a>
-    {% else %}
-      <form method="post" action="/samples/instagram" data-once>
-        <button class="btn btn-primary btn-big" type="submit">Check the sample Instagram post</button>
-      </form>
-      <p class="small muted">A banner and caption with a few deliberate mistakes: a guaranteed-return promise, a wrong rate, an off-brand colour and more.</p>
-      <div class="cta-row">
-        <form method="post" action="/samples/email" data-once><button class="btn" type="submit">Check a clean sample email</button></form>
-        <a class="btn" href="/drafts/new">New draft</a>
+<section class="hero2">
+  <div class="wrap hero2-in">
+    <div class="hero2-text">
+      <span class="eyebrow">Brand governance · before you publish</span>
+      <h1>Catch brand mistakes <em>before</em> they go live.</h1>
+      <p class="hero2-lead">Paste a post, email or banner. Brandproof checks it against your brand rules and approved facts in seconds, explains every problem, and suggests a fix. Only risky content goes to a human reviewer.</p>
+      <div class="hero2-cta">
+        {% if role == 'reviewer' %}
+        <a class="btn btn-primary btn-xl" href="/review">Open the review queue →</a>
+        {% else %}
+        <form method="post" action="/samples/instagram" data-once>
+          <button class="btn btn-primary btn-xl" type="submit">▶ Run a live check <small>30 seconds · no sign-up</small></button>
+        </form>
+        <a class="btn btn-xl btn-ghost2" href="/drafts/new">Check my own text</a>
+        {% endif %}
       </div>
-    {% endif %}
+      <p class="hero2-note">You're in a public demo as <b>{{ persona.name }}</b> ({{ ROLES[role].label | lower }}). Nothing to install, nothing to sign.</p>
+    </div>
+    <div class="hero2-visual" aria-hidden="true">
+      <div class="mock">
+        <div class="mock-draft"><mark class="m-b">GUARANTEED 12% returns</mark> with Paisaleaf Save <mark class="m-m">🚀</mark> <mark class="m-m">The best savings app in India.</mark></div>
+        <div class="mock-card b"><span class="tag sev-blocker">Blocker</span><b>Prohibited claim</b><p>“Guaranteed” is never allowed. 12% doesn't match the approved rate.</p><span class="mock-fix">Fix: Earn up to 7.10% p.a. on Paisaleaf Save*</span></div>
+        <div class="mock-card m"><span class="tag sev-major">Major</span><b>Unsupported claim</b><p>“Best” needs evidence. Second AI opinion: agreed.</p></div>
+        <div class="mock-score"><span>Facts</span><b class="bad">0</b><span>Tone</span><b class="mid">85</b><span>Visual</span><b class="mid">80</b></div>
+      </div>
+    </div>
   </div>
 </section>
-{% else %}
-<div class="page-head">
-  <h1>{{ c.ws_name }}</h1>
-  <p class="lead">Every draft is checked against this workspace's Brand Kit before it is published.</p>
-</div>
-{% if role == 'brand' and not drafts %}
-<section class="card getting-started">
-  <h2>Get started</h2>
-  <ol class="steps">
-    <li><a href="/guidelines"><b>Import your brand guideline</b></a> (PDF or Word). Brandproof drafts rules from it; you approve them.</li>
-    <li>Add your approved facts and their expiry dates to the <a href="/kit?tab=facts">Claim Ledger</a>, and your <a href="/kit?tab=palette">colours</a>.</li>
-    <li><a href="/team">Add your team</a> as creators and reviewers.</li>
-    <li><a href="/drafts/new">Check your first draft</a>.</li>
-  </ol>
+
+<section class="wrap how3">
+  <div class="how3-step"><span>1</span><b>Check</b><p>Text, Word, PDF or image. Code checks + AI, every AI answer verified by code.</p></div>
+  <div class="how3-step"><span>2</span><b>Fix</b><p>One click to accept a fix, edit it, or reject it with a reason.</p></div>
+  <div class="how3-step"><span>3</span><b>Approve</b><p>Risky drafts go to a reviewer; clean ones pass. Download the approval record.</p></div>
 </section>
-{% endif %}
+
+<section class="wrap">
+  <h2 class="sec-h">Try every role <span>· one click, no password</span></h2>
+  <div class="persona-grid">
+    {% for key, p in roles.items() %}
+    <form method="post" action="/demo/as" class="persona{% if key == role %} on{% endif %}">
+      <input type="hidden" name="back" value="{{ {'creator': '/', 'reviewer': '/review', 'brand': '/insights'}[key] }}">
+      <button type="submit" name="role" value="{{ key }}">
+        <span class="av av-{{ key }} av-lg">{{ (p.name or '?')[0] }}</span>
+        <b>{{ p.name }}</b><small>{{ ROLES[key].label }}</small>
+        <span class="persona-do">{{ {'creator': 'Writes posts, fixes findings, submits', 'reviewer': 'Approves or sends back, downloads the record', 'brand': 'Imports guidelines, edits rules, sees insights'}[key] }}</span>
+        <span class="persona-go">{% if key == role %}You are here{% else %}Become {{ p.name }} →{% endif %}</span>
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  <details class="creds">
+    <summary>Prefer to sign in? Demo logins</summary>
+    <table class="table small">
+      <thead><tr><th>Role</th><th>Email</th><th>Password</th></tr></thead>
+      <tbody>{% for key, p in demo_people.items() %}<tr><td>{{ ROLES[key].label }}</td><td class="mono">{{ p.email }}</td><td class="mono">{{ demo_password }}</td></tr>{% endfor %}</tbody>
+    </table>
+    <p class="small muted">Or <a href="/signup">create your own free workspace</a> in 30 seconds.</p>
+  </details>
+</section>
+
+<section class="wrap">
+  <h2 class="sec-h">New in this round</h2>
+  <div class="feat-grid">
+    <a class="feat" href="{{ '/guidelines' if role == 'brand' else '/kit' }}"><span class="feat-ic">📄</span><b>Guideline import</b><p>Upload a brand guideline PDF. AI drafts the rules; code proves each one is really in the document; you approve.</p><span class="feat-go">{{ 'Open' if role == 'brand' else 'As Arjun' }} →</span></a>
+    <a class="feat" href="/insights"><span class="feat-ic">📊</span><b>Insights &amp; Clarity Radar</b><p>Most common mistakes, rules people find unclear, and approved posts using facts that are about to expire.</p><span class="feat-go">Open →</span></a>
+    <a class="feat" href="/about#data"><span class="feat-ic">🔒</span><b>Trust &amp; control</b><p>Real sign-in with roles enforced by the database, private data hidden from the AI, a second AI opinion and a PDF approval record.</p><span class="feat-go">How →</span></a>
+  </div>
+</section>
 {% endif %}
 
-<section class="card">
+<section class="{% if is_demo %}wrap{% endif %}"><div class="card drafts-card" id="drafts">
   <div class="card-head">
-    <h2>Drafts</h2>
-    {% if role != 'reviewer' %}<a class="btn btn-small" href="/drafts/new">+ New draft</a>{% endif %}
+    <h2>{% if is_demo %}Recent drafts{% else %}Drafts in {{ c.ws_name }}{% endif %}</h2>
+    {% if role != 'reviewer' %}<a class="btn btn-small btn-primary" href="/drafts/new">+ New draft</a>{% endif %}
   </div>
+  {% if not is_demo and role == 'brand' and not drafts %}
+  <ol class="steps">
+    <li><a href="/guidelines"><b>Import your brand guideline</b></a> (PDF or Word); Brandproof drafts the rules, you approve them.</li>
+    <li>Add approved facts to the <a href="/kit?tab=facts">Claim Ledger</a> and your <a href="/kit?tab=palette">colours</a>.</li>
+    <li><a href="/team">Add your team</a>, then <a href="/drafts/new">check your first draft</a>.</li>
+  </ol>
+  {% endif %}
   {% if drafts %}
-  <div class="table-wrap">
-  <table class="table">
-    <thead><tr><th>Draft</th><th>Channel</th><th>Status</th><th>Version</th><th>Open issues</th><th>Updated</th></tr></thead>
-    <tbody>
-    {% for d in drafts %}
-      <tr>
-        <td><a href="/drafts/{{ d.id }}"><b>{{ d.title }}</b></a><div class="muted small">by {{ d.created_by }}</div></td>
-        <td>{{ d.channel }}</td>
-        <td><span class="status st-{{ d.status }}">{{ STATUS[d.status][0] }}</span></td>
-        <td>v{{ d.current_version }}</td>
-        <td>
-          {% if d.state == 'checking' %}<span class="tag">checking…</span>
-          {% elif d.state == 'failed' %}<span class="tag sev-major">check failed</span>
-          {% else %}
+  <ul class="draft-list">
+    {% for d in (drafts[:8] if is_demo and not request.query_params.get('all') else drafts) %}
+    <li><a href="/drafts/{{ d.id }}">
+      <span class="dl-main"><b>{{ d.title }}</b><small>{{ d.channel }} · {{ d.created_by }} · {{ d.updated_at | when }}</small></span>
+      <span class="dl-tags">
+        {% if d.state == 'checking' %}<span class="tag">checking…</span>
+        {% elif d.state == 'failed' %}<span class="tag sev-major">check failed</span>
+        {% else %}
           {% if d.counts.get('blocker') %}<span class="tag sev-blocker">{{ d.counts.get('blocker') }} blocker</span>{% endif %}
           {% if d.counts.get('major') %}<span class="tag sev-major">{{ d.counts.get('major') }} major</span>{% endif %}
-          {% if d.counts.get('minor') %}<span class="tag sev-minor">{{ d.counts.get('minor') }} minor</span>{% endif %}
-          {% if not d.issues %}<span class="tag ok">None</span>{% endif %}
-          {% endif %}
-        </td>
-        <td class="small muted">{{ d.updated_at | when }}</td>
-      </tr>
+          {% if not d.issues %}<span class="tag ok">clean</span>{% endif %}
+        {% endif %}
+        <span class="status st-{{ d.status }}">{{ STATUS[d.status][0] }}</span>
+      </span>
+    </a></li>
     {% endfor %}
-    </tbody>
-  </table>
-  </div>
+  </ul>
+  {% if is_demo and drafts | length > 8 and not request.query_params.get('all') %}<p class="small"><a href="/?all=1#drafts">Show all {{ drafts | length }} drafts</a></p>{% endif %}
   {% else %}
-  <p class="empty">No drafts yet.{% if role != 'reviewer' %} <a href="/drafts/new">Check your first draft</a>.{% endif %}</p>
+  <p class="empty">No drafts yet.{% if role != 'reviewer' %} <a href="/drafts/new">Check your first draft →</a>{% endif %}</p>
   {% endif %}
-</section>
+</div></section>
 {% endblock %}

@@ -500,6 +500,11 @@ async def recheck(request: Request):
     alt = (alt if alt is not None else draft["working_alt"] or "").strip()[:500]
     image, mime = image_bytes(old), old.get("image_mime")
     new_img = await read_upload(form.get("image"))
+    if not new_img and form.get("sample_image") == "fixed" and c.is_demo:  # demo shortcut: the corrected banner
+        with open(os.path.join(HERE, "static", "samples", "paisaleaf-banner-fixed.png"), "rb") as fh:
+            new_img = fh.read()
+        if not alt:
+            alt = "Paisaleaf banner: Earn up to 7.10% p.a. on Paisaleaf Save. Rates are subject to change. T&Cs apply."
     if new_img:
         try:
             image, mime, _ = normalise_image(new_img)
@@ -652,3 +657,49 @@ async def review_queue(request: Request):
     recent = S.db.all("SELECT * FROM drafts WHERE workspace_id = ? AND status IN ('approved', 'changes_requested') "
                       "ORDER BY updated_at DESC LIMIT 10", (c.ws,))
     return render(request, "review.html", {"drafts": drafts, "recent": recent})
+
+
+async def fix_all(request: Request):
+    """One click: accept every suggested text fix (in order of severity), then re-check as a new version."""
+    c = need_role(request, "creator", "brand")
+    draft_id = int(request.path_params["id"])
+    draft = get_draft(c.ws, draft_id)
+    if draft["status"] not in EDITABLE:
+        return go(f"/drafts/{draft_id}", "This draft is locked while it is in review or approved.", "error")
+    form = await read_form(request)
+    if form.get("base") and str(form.get("base")) != str(draft["current_version"]):
+        return go(f"/drafts/{draft_id}", f"Already done: this is version {draft['current_version']}.")
+    version = _current_done(c, draft)
+    decided = decisions_for(c.ws, draft_id, draft["current_version"])
+    text, alt = draft["working_body"] or "", draft["working_alt"] or ""
+    applied = skipped = 0
+    order = {"blocker": 0, "major": 1, "minor": 2, "info": 3}
+    for f in sorted(version["findings_list"], key=lambda f: order.get(f["severity"], 9)):
+        fix = f.get("fix") or {}
+        if f["severity"] == "ok" or f["key"] in decided or fix.get("type") not in ("replace", "remove", "append", "alt"):
+            continue
+        if fix["type"] == "alt":
+            alt, after = fix.get("text", "")[:500], fix.get("text", "")
+        else:
+            new_text, _ = apply_fix(text, fix, None, draft["locked_list"])
+            if new_text is None:  # already changed by an earlier fix, or would remove a locked phrase
+                skipped += 1
+                continue
+            text, after = new_text, fix.get("text", "")
+        S.db.execute(
+            """INSERT INTO decisions (workspace_id, draft_id, version_n, finding_key, rule_id, severity, action, reason,
+               before_text, after_text, actor, created_at) VALUES (?, ?, ?, ?, ?, ?, 'accept', '', ?, ?, ?, ?)
+               ON CONFLICT (draft_id, version_n, finding_key) DO NOTHING""",
+            (c.ws, draft_id, draft["current_version"], f["key"], f["rule_id"], f["severity"], f.get("quote") or f["title"],
+             after, c.name, now_iso()))
+        applied += 1
+    if not applied:
+        return go(f"/drafts/{draft_id}", "There are no text fixes left to accept. Fix image issues in the design, "
+                  "or reject findings with a reason.")
+    S.db.audit("finding.accept_all", c.name, c.role, draft_id, {"version": draft["current_version"], "applied": applied})
+    n = draft["current_version"] + 1
+    new_version(c, draft, n, text[:MAX_TEXT].strip(), image_bytes(version), version.get("image_mime"), alt,
+                version.get("source_name") or "", None)
+    S.db.audit("version.created", c.name, c.role, draft_id, {"version": n})
+    return go(f"/drafts/{draft_id}", f"Applied {applied} fix(es) and started re-checking as version {n}."
+              + (f" {skipped} overlapped with another fix." if skipped else ""))

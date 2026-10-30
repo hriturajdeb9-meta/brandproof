@@ -42,6 +42,7 @@ DEMO_PEOPLE = {
     "reviewer": {"email": "meera@demo.brandproof", "name": "Meera", "title": "Reviewer · Compliance"},
     "brand": {"email": "arjun@demo.brandproof", "name": "Arjun", "title": "Brand manager"},
 }
+DEMO_PASSWORD = "demo2026"  # shown on the sign-in page: the demo people are public on purpose
 EMAIL_RE = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,190}\.[A-Za-z]{2,}$")
 
 

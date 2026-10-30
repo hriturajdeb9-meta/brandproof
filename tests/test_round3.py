@@ -211,6 +211,20 @@ class WorkflowTests(unittest.TestCase):
         wait(S)
         self.assertIn("v2", c.get(first).text)
 
+    def test_fix_all_applies_every_text_fix_once(self):
+        c, S = self.client, self.S
+        r = c.post("/drafts", data={"title": "Fix all", "body": "GUARANTEED 12% returns 🚀 Sign-up now!"})
+        url = url_of(r)
+        wait(S)
+        self.assertIn("Fix all", c.get(url).text)
+        c.post(url + "/fix-all", data={"base": "1"})
+        r = c.post(url + "/fix-all", data={"base": "1"})
+        self.assertIn("Already done", r.text)                # second click does nothing
+        wait(S)
+        page = c.get(url).text
+        self.assertIn("version 2 of 2", page)
+        self.assertNotIn("GUARANTEED", page.split("Draft v2")[1].split("</section>")[0])
+
     def test_reviewer_cannot_create_or_fix(self):
         c = self.client
         c.post("/demo/as", data={"role": "reviewer"})

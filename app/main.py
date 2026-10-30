@@ -152,6 +152,7 @@ routes = [
     Route("/drafts/{id:int}/findings/{key}", dr.decide, methods=["POST"]),
     Route("/drafts/{id:int}/discard", dr.discard_working, methods=["POST"]),
     Route("/drafts/{id:int}/recheck", dr.recheck, methods=["POST"]),
+    Route("/drafts/{id:int}/fix-all", dr.fix_all, methods=["POST"]),
     Route("/drafts/{id:int}/retry", dr.retry_check, methods=["POST"]),
     Route("/drafts/{id:int}/submit", dr.submit, methods=["POST"]),
     Route("/drafts/{id:int}/review", dr.review, methods=["POST"]),
