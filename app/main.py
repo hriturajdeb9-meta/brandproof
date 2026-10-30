@@ -10,6 +10,7 @@ from urllib.parse import urlsplit
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse
 from starlette.routing import Mount, Route
@@ -101,6 +102,15 @@ async def healthz(request: Request):
     return JSONResponse({"ok": ok, "storage": S.db.kind, "rls": S.db.rls, "ai": S.ai.label,
                          "auth": "supabase" if auth.supabase_on() else "built-in", "warning": S.db.warning},
                         status_code=200 if ok else 503)
+
+
+class CachedStatic(StaticFiles):
+    """Static files are versioned in their URLs (?v=...), so browsers may keep them for a day."""
+
+    def file_response(self, *args, **kwargs):
+        resp = super().file_response(*args, **kwargs)
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
 
 
 class SameOriginPosts:
@@ -198,9 +208,10 @@ routes = [
     Route("/audit", audit_page),
     Route("/about", about_page),
     Route("/healthz", healthz),
-    Mount("/static", StaticFiles(directory=os.path.join(HERE, "static")), name="static"),
+    Mount("/static", CachedStatic(directory=os.path.join(HERE, "static")), name="static"),
 ]
 
 app = Starlette(routes=routes, lifespan=lifespan,
-                middleware=[Middleware(SameOriginPosts), Middleware(SessionMiddleware)],
+                middleware=[Middleware(GZipMiddleware, minimum_size=800), Middleware(SameOriginPosts),
+                            Middleware(SessionMiddleware)],
                 exception_handlers={HTTPException: http_error, 500: server_error}, max_body_size=10 * 1024 * 1024)

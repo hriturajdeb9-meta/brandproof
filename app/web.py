@@ -25,7 +25,7 @@ log = logging.getLogger("brandproof")
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_TEXT = 12000
 MAX_UPLOAD = 8 * 1024 * 1024
-APP_VERSION = "3.0"
+APP_VERSION = "3.1"
 
 
 class State:

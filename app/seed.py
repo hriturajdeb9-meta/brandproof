@@ -260,29 +260,36 @@ def clear_kit_rows(db: Database, workspace_id: int) -> None:
 
 
 def seed_demo(db: Database) -> int:
-    """Create the public demo workspace with its people and Brand Kit (once). Returns its id."""
+    """Create the public demo workspace with its people and sample Brand Kit (once). Returns its id.
+    No made-up activity is added: drafts, insights and the audit log fill up only from real use."""
+    import os
+
     from .auth import demo_workspace_id, ensure_demo_people
 
     with db.as_system():
         if db.claim_once("demo_seeded"):
+            db.claim_once("demo_cleaned_v3")  # a fresh demo has nothing to clean
             ws = db.insert("INSERT INTO workspaces (name, is_demo, disclaimer, created_at) VALUES (?, 1, ?, ?) RETURNING id",
                            ("Paisaleaf (demo)", DISCLAIMER, now_iso()))
             ensure_demo_people(db, ws)
-            uid = db.insert("INSERT INTO users (email, name, auth, created_at) VALUES ('rahul@demo.brandproof', 'Rahul', "
-                            "'demo', ?) ON CONFLICT (email) DO NOTHING RETURNING id", (now_iso(),))
-            if uid:
-                db.execute("INSERT INTO members (workspace_id, user_id, email, role, title, added_by, created_at) "
-                           "VALUES (?, ?, 'rahul@demo.brandproof', 'creator', 'Creator · Agency', 'System', ?)",
-                           (ws, uid, now_iso()))
             seed_kit_rows(db, ws, "demo")
-            try:
+            if os.environ.get("BP_DEMO_HISTORY") == "1":  # only for automated tests of the insights page
                 from .demo_history import seed_history
                 seed_history(db, ws)
-            except Exception:  # the demo still works without the sample history
-                import logging
-                logging.getLogger("brandproof").exception("could not seed demo history")
             return ws
         ws = demo_workspace_id(db)
         if ws:
             ensure_demo_people(db, ws)
+            if db.claim_once("demo_cleaned_v3"):
+                clean_demo_activity(db, ws)
         return ws
+
+
+def clean_demo_activity(db: Database, ws: int) -> None:
+    """One-time clean-up: remove the simulated history and test drafts from the public demo, so judges start
+    from a clean workspace. The Brand Kit and the demo people stay."""
+    for t in ("decisions", "comments", "versions", "candidates", "guidelines", "drafts"):
+        db.execute(f"DELETE FROM {t} WHERE workspace_id = ?", (ws,))
+    db.execute("DELETE FROM audit WHERE workspace_id = ? AND action NOT LIKE 'kit.%'", (ws,))
+    db.execute("DELETE FROM members WHERE workspace_id = ? AND email = 'rahul@demo.brandproof'", (ws,))
+    db.execute("DELETE FROM users WHERE email = 'rahul@demo.brandproof'")

@@ -15,6 +15,27 @@
     setTimeout(close, t.classList.contains("error") ? 9000 : 5000);
   });
 
+  // Landing page: reveal on scroll, a light that follows the mouse, a gentle tilt on the preview card.
+  var reveals = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window && reveals.length) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en, i) {
+        if (en.isIntersecting) { setTimeout(function () { en.target.classList.add("in"); }, i * 70); io.unobserve(en.target); }
+      });
+    }, { threshold: 0.12 });
+    reveals.forEach(function (el) { io.observe(el); });
+    setTimeout(function () { reveals.forEach(function (el) { el.classList.add("in"); }); }, 2500);  // never leave anything hidden
+  } else { reveals.forEach(function (el) { el.classList.add("in"); }); }
+  var hero = document.querySelector(".hero2"), glow = document.querySelector(".hero2-glow"), tilt = document.querySelector(".tilt");
+  if (hero && window.matchMedia && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    hero.addEventListener("mousemove", function (e) {
+      var r = hero.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      if (glow) { glow.style.setProperty("--mx", (x * 100) + "%"); glow.style.setProperty("--my", (y * 100) + "%"); }
+      if (tilt) tilt.style.transform = "perspective(900px) rotateY(" + ((x - 0.5) * 8) + "deg) rotateX(" + ((0.5 - y) * 6) + "deg)";
+    });
+    hero.addEventListener("mouseleave", function () { if (tilt) tilt.style.transform = ""; });
+  }
+
   // "Try an example" chips on the new-draft page.
   document.querySelectorAll("[data-fill]").forEach(function (b) {
     b.addEventListener("click", function () {

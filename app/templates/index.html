@@ -4,51 +4,57 @@
 {% block content %}
 {% if is_demo %}
 <section class="hero2">
+  <div class="hero2-glow" aria-hidden="true"></div>
   <div class="wrap hero2-in">
     <div class="hero2-text">
-      <span class="eyebrow">Brand governance · before you publish</span>
+      <span class="eyebrow">AI brand checker · verified by code</span>
       <h1>Catch brand mistakes <em>before</em> they go live.</h1>
-      <p class="hero2-lead">Paste a post, email or banner. Brandproof checks it against your brand rules and approved facts in seconds, explains every problem, and suggests a fix. Only risky content goes to a human reviewer.</p>
+      <p class="hero2-lead">Paste a post, email or banner. In seconds Brandproof shows what breaks your brand rules or approved facts, why, and how to fix it.</p>
       <div class="hero2-cta">
         {% if role == 'reviewer' %}
         <a class="btn btn-primary btn-xl" href="/review">Open the review queue →</a>
         {% else %}
         <form method="post" action="/samples/instagram" data-once>
-          <button class="btn btn-primary btn-xl" type="submit">▶ Run a live check <small>30 seconds · no sign-up</small></button>
+          <button class="btn btn-primary btn-xl btn-shine" type="submit">▶ Run a live check <small>about 20 seconds · no sign-up</small></button>
         </form>
         <a class="btn btn-xl btn-ghost2" href="/drafts/new">Check my own text</a>
         {% endif %}
       </div>
-      <p class="hero2-note">You're in a public demo as <b>{{ persona.name }}</b> ({{ ROLES[role].label | lower }}). Nothing to install, nothing to sign.</p>
+      <ul class="trust">
+        <li>✓ Every AI answer checked by code</li>
+        <li>✓ Private data hidden from the AI</li>
+        <li>✓ Roles enforced by the database</li>
+      </ul>
     </div>
     <div class="hero2-visual" aria-hidden="true">
-      <div class="mock">
+      <div class="mock tilt">
+        <div class="mock-bar"><span></span><span></span><span></span><b>Instagram post · checking…</b></div>
         <div class="mock-draft"><mark class="m-b">GUARANTEED 12% returns</mark> with Paisaleaf Save <mark class="m-m">🚀</mark> <mark class="m-m">The best savings app in India.</mark></div>
-        <div class="mock-card b"><span class="tag sev-blocker">Blocker</span><b>Prohibited claim</b><p>“Guaranteed” is never allowed. 12% doesn't match the approved rate.</p><span class="mock-fix">Fix: Earn up to 7.10% p.a. on Paisaleaf Save*</span></div>
-        <div class="mock-card m"><span class="tag sev-major">Major</span><b>Unsupported claim</b><p>“Best” needs evidence. Second AI opinion: agreed.</p></div>
-        <div class="mock-score"><span>Facts</span><b class="bad">0</b><span>Tone</span><b class="mid">85</b><span>Visual</span><b class="mid">80</b></div>
+        <div class="mock-card b pop1"><span class="tag sev-blocker">Blocker</span><b>Prohibited claim</b><p>“Guaranteed” is never allowed, and 12% isn't the approved rate.</p><span class="mock-fix">Fix → Earn up to 7.10% p.a. on Paisaleaf Save*</span></div>
+        <div class="mock-card m pop2"><span class="tag sev-major">Major</span><b>Unsupported claim</b><p>“Best” needs evidence. Second AI opinion: agreed.</p></div>
+        <div class="mock-score pop3"><span>Facts</span><b class="bad">0</b><span>Tone</span><b class="mid">85</b><span>Visual</span><b class="mid">80</b></div>
       </div>
     </div>
   </div>
 </section>
 
 <section class="wrap how3">
-  <div class="how3-step"><span>1</span><b>Check</b><p>Text, Word, PDF or image. Code checks + AI, every AI answer verified by code.</p></div>
-  <div class="how3-step"><span>2</span><b>Fix</b><p>One click to accept a fix, edit it, or reject it with a reason.</p></div>
-  <div class="how3-step"><span>3</span><b>Approve</b><p>Risky drafts go to a reviewer; clean ones pass. Download the approval record.</p></div>
+  <div class="how3-step reveal"><span>1</span><b>Check</b><p>Text, Word, PDF or image, checked against your rules and approved facts.</p></div>
+  <div class="how3-step reveal"><span>2</span><b>Fix</b><p>Every problem comes with a fix. Accept all in one click.</p></div>
+  <div class="how3-step reveal"><span>3</span><b>Approve</b><p>Risky posts go to a reviewer. Download a signed-off record.</p></div>
 </section>
 
 <section class="wrap">
-  <h2 class="sec-h">Try every role <span>· one click, no password</span></h2>
+  <h2 class="sec-h reveal">Try it as anyone <span>· one click, no password</span></h2>
   <div class="persona-grid">
     {% for key, p in roles.items() %}
-    <form method="post" action="/demo/as" class="persona{% if key == role %} on{% endif %}">
+    <form method="post" action="/demo/as" class="persona reveal{% if key == role %} on{% endif %}">
       <input type="hidden" name="back" value="{{ {'creator': '/', 'reviewer': '/review', 'brand': '/insights'}[key] }}">
       <button type="submit" name="role" value="{{ key }}">
         <span class="av av-{{ key }} av-lg">{{ (p.name or '?')[0] }}</span>
         <b>{{ p.name }}</b><small>{{ ROLES[key].label }}</small>
-        <span class="persona-do">{{ {'creator': 'Writes posts, fixes findings, submits', 'reviewer': 'Approves or sends back, downloads the record', 'brand': 'Imports guidelines, edits rules, sees insights'}[key] }}</span>
-        <span class="persona-go">{% if key == role %}You are here{% else %}Become {{ p.name }} →{% endif %}</span>
+        <span class="persona-do">{{ {'creator': 'Writes posts and fixes what Brandproof finds.', 'reviewer': 'Approves risky posts and downloads the record.', 'brand': 'Imports guidelines, edits rules, reads insights.'}[key] }}</span>
+        <span class="persona-go">{% if key == role %}✓ You are here{% else %}Become {{ p.name }} →{% endif %}</span>
       </button>
     </form>
     {% endfor %}
@@ -64,18 +70,19 @@
 </section>
 
 <section class="wrap">
-  <h2 class="sec-h">New in this round</h2>
+  <h2 class="sec-h reveal">What it does</h2>
   <div class="feat-grid">
-    <a class="feat" href="{{ '/guidelines' if role == 'brand' else '/kit' }}"><span class="feat-ic">📄</span><b>Guideline import</b><p>Upload a brand guideline PDF. AI drafts the rules; code proves each one is really in the document; you approve.</p><span class="feat-go">{{ 'Open' if role == 'brand' else 'As Arjun' }} →</span></a>
-    <a class="feat" href="/insights"><span class="feat-ic">📊</span><b>Insights &amp; Clarity Radar</b><p>Most common mistakes, rules people find unclear, and approved posts using facts that are about to expire.</p><span class="feat-go">Open →</span></a>
-    <a class="feat" href="/about#data"><span class="feat-ic">🔒</span><b>Trust &amp; control</b><p>Real sign-in with roles enforced by the database, private data hidden from the AI, a second AI opinion and a PDF approval record.</p><span class="feat-go">How →</span></a>
+    <a class="feat reveal" href="/drafts/new"><span class="feat-ic">🔍</span><b>Checks six things</b><p>Facts and claims, tone, words, required messages, colours and accessibility.</p><span class="feat-go">Check a draft →</span></a>
+    <a class="feat reveal" href="{{ '/guidelines' if role == 'brand' else '/kit' }}"><span class="feat-ic">📄</span><b>Learns your guideline</b><p>Upload your brand PDF. Rules are drafted for you and proven against the document.</p><span class="feat-go">{{ 'Import a guideline' if role == 'brand' else 'See the rules' }} →</span></a>
+    <a class="feat reveal" href="/insights"><span class="feat-ic">📊</span><b>Shows what goes wrong</b><p>Common mistakes, unclear rules, and approved posts about to go out of date.</p><span class="feat-go">Open insights →</span></a>
   </div>
 </section>
 {% endif %}
 
+{% if drafts or not is_demo %}
 <section class="{% if is_demo %}wrap{% endif %}"><div class="card drafts-card" id="drafts">
   <div class="card-head">
-    <h2>{% if is_demo %}Recent drafts{% else %}Drafts in {{ c.ws_name }}{% endif %}</h2>
+    <h2>{% if is_demo %}Drafts in the demo{% else %}Drafts in {{ c.ws_name }}{% endif %}</h2>
     {% if role != 'reviewer' %}<a class="btn btn-small btn-primary" href="/drafts/new">+ New draft</a>{% endif %}
   </div>
   {% if not is_demo and role == 'brand' and not drafts %}
@@ -108,4 +115,12 @@
   <p class="empty">No drafts yet.{% if role != 'reviewer' %} <a href="/drafts/new">Check your first draft →</a>{% endif %}</p>
   {% endif %}
 </div></section>
+{% endif %}
+{% if is_demo %}
+<section class="wrap"><div class="cta-band reveal">
+  <div><b>Ready?</b> See a real check in about 20 seconds.</div>
+  {% if role != 'reviewer' %}<form method="post" action="/samples/instagram" data-once><button class="btn btn-primary btn-lg" type="submit">▶ Run a live check</button></form>
+  {% else %}<a class="btn btn-primary btn-lg" href="/review">Open the review queue →</a>{% endif %}
+</div></section>
+{% endif %}
 {% endblock %}

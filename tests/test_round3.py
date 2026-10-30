@@ -15,6 +15,7 @@ import warnings
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
+os.environ.setdefault("BP_DEMO_HISTORY", "1")  # the insights tests need some past activity
 os.environ.setdefault("FAKE_AI_FILE", os.path.join(ROOT, "tests", "fake_ai.json"))
 
 from app.ai import AIGateway, parse_route  # noqa: E402
