@@ -297,6 +297,25 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(c.get("/kit/rules/R-NOPE-1").status_code, 404)
 
 
+class ReadCacheTests(unittest.TestCase):
+    def test_reads_are_cached_until_any_write_and_kept_per_user(self):
+        db = Database(url="", sqlite_path=":memory:")
+        db.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+        db.execute("INSERT INTO t (v) VALUES ('a')")
+        rows = db.all("SELECT v FROM t ORDER BY id")
+        rows.append({"v": "mutated"})  # callers may change what they get back without touching the cache
+        self.assertEqual(db.all("SELECT v FROM t ORDER BY id"), [{"v": "a"}])
+        db._conn.execute("INSERT INTO t (v) VALUES ('outside')")  # a change behind the cache's back...
+        self.assertEqual(len(db.all("SELECT v FROM t ORDER BY id")), 1)  # ...is not seen (served from memory)
+        db.execute("UPDATE t SET v = 'b' WHERE id = 1")  # any write through the app empties the cache
+        self.assertEqual([r["v"] for r in db.all("SELECT v FROM t ORDER BY id")], ["b", "outside"])
+        with db.acting_as(5, 9):  # a different acting user gets its own entry (row-level security may differ)
+            self.assertNotIn((None, "SELECT v FROM t ORDER BY id", ()), [k for k in db._rcache if k[0] == (5, 9)])
+            db.all("SELECT v FROM t ORDER BY id")
+        self.assertTrue(any(k[0] == (5, 9) for k in db._rcache))
+        db.close()
+
+
 class UpgradeTests(unittest.TestCase):
     def test_round2_database_is_kept_and_replaced(self):
         path = os.path.join(tempfile.mkdtemp(), "r2.db")

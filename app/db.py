@@ -14,16 +14,19 @@ Kit, or rewrite the audit log. On SQLite (local development) the same rules are 
 from __future__ import annotations
 
 import contextvars
+import copy
 import json
 import logging
 import os
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 
 log = logging.getLogger("brandproof.db")
 _SQL_LOG = os.environ.get("BP_SQL_LOG", "")
+_READ_CACHE_SECONDS = float(os.environ.get("BP_READ_CACHE_SECONDS", "600"))  # 0 turns the read cache off
 SCHEMA_VERSION = "3"
 
 # (user_id, workspace_id) of whoever the current request or background job acts for; None = system
@@ -286,6 +289,7 @@ class Database:
         self.rls_note = "Local SQLite database: roles are enforced by the app."
         self._conn = None
         self._state: tuple | None = None  # what the connection is currently set to act as
+        self._rcache: dict = {}           # identical SELECT -> rows, emptied by any write
         if self.url.startswith(("postgres://", "postgresql://")):
             try:
                 self._connect_pg()
@@ -366,11 +370,39 @@ class Database:
                         "SET ROLE bp_app")
         self._state = want
 
+    # ------------------------------------------------------------ read cache
+    # The database can be a continent away from the server, so each statement costs a network round trip.
+    # Identical SELECTs are answered from memory until the next write. This is safe because this process is
+    # the only writer (one web service), every write goes through this object and empties the cache, and the
+    # key includes who the query runs as, so row-level security sees exactly what it would have seen.
+    def _cache_get(self, key):
+        hit = self._rcache.get(key)
+        if hit is None or time.monotonic() - hit[0] > _READ_CACHE_SECONDS:
+            return None
+        return copy.deepcopy(hit[1])
+
+    def _cache_put(self, key, rows) -> None:
+        if len(self._rcache) > 3000:
+            self._rcache.clear()
+        self._rcache[key] = (time.monotonic(), copy.deepcopy(rows))
+
+    def clear_cache(self) -> None:
+        with self.lock:
+            self._rcache.clear()
+
     def _run(self, sql: str, params=(), fetch: str = "all"):
         if _SQL_LOG:  # development aid: record every statement (used to verify PostgreSQL compatibility)
             with open(_SQL_LOG, "a", encoding="utf-8") as fh:
                 fh.write(" ".join(sql.split()) + "\n")
+        is_read = fetch == "all" and sql.lstrip()[:6].upper() == "SELECT"
+        key = (_acting.get(), sql, tuple(params)) if is_read and _READ_CACHE_SECONDS > 0 else None
         with self.lock:
+            if key is not None:
+                rows = self._cache_get(key)
+                if rows is not None:
+                    return rows
+            elif not is_read:
+                self._rcache.clear()  # any write may change any answer
             for attempt in (1, 2):
                 try:
                     cur = self._conn.cursor()
@@ -379,7 +411,10 @@ class Database:
                     if fetch == "none":
                         return None
                     rows = cur.fetchall() if cur.description else []
-                    return [dict(r) for r in rows]
+                    rows = [dict(r) for r in rows]
+                    if key is not None:
+                        self._cache_put(key, rows)
+                    return rows
                 except Exception as exc:
                     if self.kind == "postgres" and attempt == 1 and _is_connection_error(exc):
                         log.warning("PostgreSQL connection lost, reconnecting")

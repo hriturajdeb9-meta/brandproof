@@ -9,6 +9,8 @@
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/style.css?v={{ app_version }}">
   <script>document.documentElement.classList.add("js")</script>
+  {# Supporting browsers start loading a page when the pointer rests on its link, so it opens at once. #}
+  <script type="speculationrules">{"prerender": [{"where": {"and": [{"href_matches": "/*"}, {"not": {"href_matches": "/*.pdf"}}, {"not": {"href_matches": "/*/record.pdf*"}}, {"not": {"href_matches": "/*.csv"}}, {"not": {"href_matches": "/static/*"}}, {"not": {"selector_matches": "[download]"}}]}, "eagerness": "moderate"}]}</script>
   {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">

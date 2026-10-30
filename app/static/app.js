@@ -92,6 +92,30 @@
     setTimeout(tick, 1200);
   }
 
+  // Instant feedback: a thin progress bar the moment a page or form is on its way.
+  var bar = document.createElement("div");
+  bar.className = "navbar-progress";
+  document.body.appendChild(bar);
+  var startBar = function () { bar.classList.remove("go"); void bar.offsetWidth; bar.classList.add("go"); };
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest && e.target.closest("a[href]");
+    if (!a || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || a.target || a.hasAttribute("download")) return;
+    var href = a.getAttribute("href");
+    if (href.charAt(0) === "#" || a.origin !== location.origin || /\.pdf($|\?)/.test(href)) return;
+    startBar();
+  });
+  document.addEventListener("submit", function (e) {
+    if (e.defaultPrevented) return;
+    startBar();
+    // Switching person: show the new person as selected straight away.
+    var btn = e.submitter;
+    if (btn && btn.classList.contains("who-btn")) {
+      document.querySelectorAll(".who-btn.on").forEach(function (b) { b.classList.remove("on"); b.setAttribute("aria-pressed", "false"); });
+      btn.classList.add("on"); btn.setAttribute("aria-pressed", "true");
+    }
+  });
+  window.addEventListener("pageshow", function () { bar.classList.remove("go"); });
+
   // Confirm destructive actions.
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {

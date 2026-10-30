@@ -25,7 +25,7 @@ log = logging.getLogger("brandproof")
 HERE = os.path.dirname(os.path.abspath(__file__))
 MAX_TEXT = 12000
 MAX_UPLOAD = 8 * 1024 * 1024
-APP_VERSION = "3.1"
+APP_VERSION = "3.2"
 
 
 class State:
@@ -432,8 +432,10 @@ def set_session(request: Request, user_id: int, workspace_id: int | None) -> Non
     request.scope["bp_new_cookie"] = S.sessions.sign(user_id, workspace_id)
     forget()
     if workspace_id:
-        with S.db.as_system():
-            S.db.execute("UPDATE users SET last_workspace = ? WHERE id = ?", (workspace_id, user_id))
+        user = auth.get_user(S.db, user_id)
+        if not user or user.get("last_workspace") != workspace_id:  # skip the write (and its round trip) if unchanged
+            with S.db.as_system():
+                S.db.execute("UPDATE users SET last_workspace = ? WHERE id = ?", (workspace_id, user_id))
 
 
 def clear_session(request: Request) -> None:

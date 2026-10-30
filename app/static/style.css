@@ -522,3 +522,10 @@ textarea#body { font-size: 1.05rem; }
 .js .reveal { opacity: 0; transform: translateY(14px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.8,.2,1); }
 .js .reveal.in { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; } .pop1, .pop2, .pop3 { opacity: 1; transform: none; animation: none; } .btn-shine::before { display: none; } .mock { transform: none !important; } }
+
+/* Instant navigation feedback */
+.navbar-progress { position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 1000; pointer-events: none;
+  background: linear-gradient(90deg, #0E8A6A, #38C79C); box-shadow: 0 0 8px rgba(56,199,156,.6); opacity: 0; }
+.navbar-progress.go { opacity: 1; animation: navprog 8s cubic-bezier(.1,.7,.2,1) forwards; }
+@keyframes navprog { 0% { width: 0 } 10% { width: 45% } 40% { width: 75% } 100% { width: 94% } }
+@media (prefers-reduced-motion: reduce) { .navbar-progress.go { animation: none; width: 70%; } }
