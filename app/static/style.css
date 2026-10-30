@@ -529,3 +529,129 @@ textarea#body { font-size: 1.05rem; }
 .navbar-progress.go { opacity: 1; animation: navprog 8s cubic-bezier(.1,.7,.2,1) forwards; }
 @keyframes navprog { 0% { width: 0 } 10% { width: 45% } 40% { width: 75% } 100% { width: 94% } }
 @media (prefers-reduced-motion: reduce) { .navbar-progress.go { animation: none; width: 70%; } }
+
+/* =====================================================================
+   Premium layer (v3.3): type, depth, and motion that answers actions
+   ===================================================================== */
+:root {
+  --display: "Bricolage Grotesque", Inter, ui-sans-serif, system-ui, sans-serif;
+  --radius: 14px;
+  --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 1px 2px rgba(19,33,60,.06), 0 10px 28px -16px rgba(19,33,60,.22);
+  --shadow-lift: 0 1px 0 rgba(255,255,255,.7) inset, 0 2px 4px rgba(19,33,60,.06), 0 22px 44px -18px rgba(19,33,60,.32);
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --roles: linear-gradient(90deg, #0E8A6A 0 33.3%, #5B42C9 33.3% 66.6%, #B45309 66.6% 100%);
+}
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-feature-settings: "cv11", "ss01";
+  background: radial-gradient(1100px 420px at 85% -120px, rgba(61,214,164,.10), transparent 70%),
+              radial-gradient(900px 380px at -10% -140px, rgba(91,66,201,.07), transparent 70%), var(--bg);
+  background-attachment: fixed; -webkit-font-smoothing: antialiased; }
+h1, h2, .sec-h, .logo, .score-val, .stat-val, .hero2 h1, .cta-band { font-family: var(--display); }
+h1 { font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem); font-weight: 700; letter-spacing: -0.03em; line-height: 1.08; }
+h2 { font-weight: 650; letter-spacing: -0.015em; }
+.lead { color: var(--ink2); }
+
+/* header: glass, with a hairline in the three role colours (creator, reviewer, brand manager) */
+.top { position: sticky; top: 0; z-index: 50; background: rgba(19,33,60,.92); backdrop-filter: saturate(160%) blur(14px); -webkit-backdrop-filter: saturate(160%) blur(14px); view-transition-name: topbar; }
+.top::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--roles); opacity: .85; }
+.nav a { position: relative; transition: color .2s, background .2s; }
+.nav a[aria-current]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: -11px; height: 2px; border-radius: 2px; background: #3DD6A4; box-shadow: 0 0 10px rgba(61,214,164,.8); }
+.logo svg { transition: transform .5s var(--ease); }
+.logo:hover svg { transform: rotate(-8deg) scale(1.08); }
+.who { background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
+.who-btn { transition: background .25s, color .25s, transform .1s, box-shadow .25s; }
+.who-btn.on { box-shadow: 0 6px 18px -6px rgba(0,0,0,.5); }
+.who-btn .av { transition: transform .3s var(--ease); }
+.who-btn:hover .av { transform: scale(1.12); }
+.demo-bar { background: rgba(233,237,245,.7); backdrop-filter: blur(8px); }
+
+/* surfaces */
+.card, .score, .stat, .fc, .how3-step { border-color: rgba(19,33,60,.09); box-shadow: var(--shadow); border-radius: var(--radius); }
+.card { position: relative; }
+.score, .stat { position: relative; overflow: hidden; transition: transform .25s var(--ease), box-shadow .25s; }
+.score:hover, .stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-lift); }
+.score::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: calc(var(--s, 0) * 1%); background: currentColor; transition: width 1.1s var(--ease); }
+.score.good { color: var(--ok); } .score.mid { color: var(--maj); } .score.bad { color: var(--blk); } .score.na { color: #C3CAD8; }
+.score-label, .score-sub { color: var(--muted); }
+.score-val, .stat-val { font-variant-numeric: tabular-nums; }
+.stat-val { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; }
+.banner { border-radius: 12px; }
+
+/* pointer spotlight on interactive surfaces */
+.spot { --px: 50%; --py: 50%; }
+.spot::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .3s;
+  background: radial-gradient(420px circle at var(--px) var(--py), rgba(61,214,164,.10), transparent 45%); }
+.spot:hover::before { opacity: 1; }
+.draft-list a, .feat, .persona button, .stat, .score, .how3-step, .kit-tabs a { position: relative; }
+
+/* lists and tables */
+.draft-list a { transition: background .2s, transform .2s var(--ease), box-shadow .2s; border-radius: 12px; }
+.draft-list a:hover { background: #fff; box-shadow: var(--shadow-lift); transform: translateX(3px); }
+.table th { background: transparent; }
+.table tbody tr { transition: background .15s; }
+.table tbody tr:hover td { background: #F6FBF9; }
+
+/* tabs as a segmented control */
+.kit-tabs a { transition: background .2s, color .2s, box-shadow .2s, transform .15s; box-shadow: 0 1px 2px rgba(19,33,60,.05); }
+.kit-tabs a:hover { transform: translateY(-1px); box-shadow: 0 6px 14px -8px rgba(19,33,60,.35); }
+.kit-tabs a[aria-current] { box-shadow: 0 8px 18px -8px rgba(19,33,60,.6); }
+
+/* buttons */
+.btn { transition: transform .08s ease, box-shadow .2s, background .2s, border-color .2s, color .2s; }
+.btn-primary { background: linear-gradient(180deg, #13A07B, #0E8A6A); border-color: #0C7C5F; box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 6px 16px -6px rgba(14,138,106,.65); }
+.btn-primary:hover { background: linear-gradient(180deg, #11916F, #0B7259); box-shadow: 0 1px 0 rgba(255,255,255,.25) inset, 0 10px 24px -8px rgba(14,138,106,.8); transform: translateY(-1px); }
+.btn:not(.btn-primary):not(.btn-ghost2):hover { box-shadow: 0 6px 16px -10px rgba(19,33,60,.5); transform: translateY(-1px); }
+input:not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea { transition: border-color .2s, box-shadow .2s; }
+input:not([type=checkbox]):not([type=radio]):not([type=file]):focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(14,138,106,.14); outline: none; }
+
+/* findings arrive one after another when a check result opens */
+.js .findings .fc { animation: fcin .55s var(--ease) both; }
+.js .findings .fc:nth-child(2) { animation-delay: .06s; } .js .findings .fc:nth-child(3) { animation-delay: .12s; }
+.js .findings .fc:nth-child(4) { animation-delay: .18s; } .js .findings .fc:nth-child(5) { animation-delay: .24s; }
+.js .findings .fc:nth-child(n+6) { animation-delay: .3s; }
+@keyframes fcin { from { opacity: 0; transform: translateY(12px) scale(.985); } }
+.fc { transition: box-shadow .25s, transform .25s var(--ease); }
+.fc:hover { box-shadow: var(--shadow-lift); }
+
+/* insights bars grow from zero */
+.js .hb-fill { transform-origin: left; animation: grow 1s var(--ease) both .15s; }
+.hbars li:nth-child(2) .hb-fill { animation-delay: .22s; } .hbars li:nth-child(3) .hb-fill { animation-delay: .29s; }
+.hbars li:nth-child(4) .hb-fill { animation-delay: .36s; } .hbars li:nth-child(n+5) .hb-fill { animation-delay: .43s; }
+@keyframes grow { from { transform: scaleX(0); } }
+.hb-fill { background: linear-gradient(90deg, #0E8A6A, #3DD6A4); }
+
+/* the approval stamp: the one big moment, when a draft is signed off */
+.banner.ok.approved { position: relative; padding: 32px 210px 32px 20px; }
+.stamp { position: absolute; right: 26px; top: 50%; margin-top: -30px; padding: 7px 14px 6px; border-radius: 8px; text-align: center; white-space: nowrap;
+  color: #0A6B52; border: 3px solid currentColor; box-shadow: inset 0 0 0 2px #E5F4EE, inset 0 0 0 4px currentColor; transform: rotate(-8deg);
+  font-family: var(--display); font-weight: 800; letter-spacing: .12em; line-height: 1; font-size: 1.35rem; background: rgba(255,255,255,.35); }
+.stamp small { display: block; font-size: .56rem; letter-spacing: .22em; font-weight: 700; margin-top: 5px; opacity: .8; }
+.js .stamp { animation: stamp .55s cubic-bezier(.2,1.4,.4,1) both .25s; }
+@keyframes stamp { 0% { opacity: 0; transform: rotate(-24deg) scale(2.4); } 70% { opacity: 1; transform: rotate(-6deg) scale(.94); } 100% { transform: rotate(-8deg) scale(1); } }
+
+/* toasts spring in */
+.toast { animation: toastin .5s cubic-bezier(.2,1.3,.4,1) both; box-shadow: 0 18px 40px -12px rgba(19,33,60,.45); backdrop-filter: blur(8px); }
+@keyframes toastin { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+
+/* page-to-page: the header stays put and the page glides in (browsers that support view transitions) */
+@view-transition { navigation: auto; }
+::view-transition-old(root) { animation: vt-out .18s ease both; }
+::view-transition-new(root) { animation: vt-in .32s var(--ease) both; }
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(10px); } }
+::view-transition-group(topbar) { animation: none; }
+
+/* landing touches */
+.how3-step span { background: linear-gradient(180deg, #13A07B, #0E8A6A); box-shadow: 0 6px 14px -6px rgba(14,138,106,.8); }
+.feat, .persona button { box-shadow: var(--shadow); }
+
+@media (max-width: 760px) {
+  .banner.ok.approved { padding-right: 14px; min-height: 0; }
+  .stamp { position: relative; right: auto; top: auto; margin: 6px 0 14px 6px; display: table; font-size: 1.05rem; }
+
+  .nav a[aria-current]::after { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .js .findings .fc, .js .hb-fill, .js .stamp, .toast { animation: none; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  .score::after { transition: none; }
+}

@@ -116,6 +116,43 @@
   });
   window.addEventListener("pageshow", function () { bar.classList.remove("go"); });
 
+  var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Scores and summary numbers count up when the page opens, and score meters fill.
+  if (!calm) {
+    document.querySelectorAll(".score-val, .stat-val").forEach(function (el) {
+      var m = /^(\d+(?:\.\d+)?)(%?)$/.exec(el.textContent.trim());
+      if (!m) return;
+      var end = parseFloat(m[1]), dec = (m[1].split(".")[1] || "").length, suf = m[2], t0 = null;
+      if (end === 0) return;
+      var step = function (t) {
+        if (t0 === null) t0 = t;
+        var k = Math.min(1, (t - t0) / 900), e = 1 - Math.pow(1 - k, 3);
+        el.textContent = (end * e).toFixed(dec) + suf;
+        if (k < 1) requestAnimationFrame(step);
+      };
+      el.textContent = (0).toFixed(dec) + suf;
+      requestAnimationFrame(step);
+    });
+    document.querySelectorAll(".score[style]").forEach(function (s) {
+      var v = s.style.getPropertyValue("--s");
+      s.style.setProperty("--s", "0");
+      requestAnimationFrame(function () { requestAnimationFrame(function () { s.style.setProperty("--s", v); }); });
+    });
+  }
+
+  // A soft light follows the pointer across cards you can click.
+  if (!calm && window.matchMedia("(hover: hover)").matches) {
+    document.querySelectorAll(".draft-list a, .feat, .persona button, .stat, .score, .how3-step, .kit-tabs a").forEach(function (el) { el.classList.add("spot"); });
+    document.addEventListener("pointermove", function (e) {
+      var el = e.target.closest && e.target.closest(".spot");
+      if (!el) return;
+      var r = el.getBoundingClientRect();
+      el.style.setProperty("--px", (e.clientX - r.left) + "px");
+      el.style.setProperty("--py", (e.clientY - r.top) + "px");
+    }, { passive: true });
+  }
+
   // Confirm destructive actions.
   document.querySelectorAll("form[data-confirm]").forEach(function (form) {
     form.addEventListener("submit", function (e) {

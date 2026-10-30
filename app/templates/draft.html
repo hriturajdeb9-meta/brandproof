@@ -16,7 +16,7 @@
 {% if not is_current %}
 <div class="banner info">You are looking at an older version (v{{ n }}). <a href="/drafts/{{ draft.id }}">Go to the latest version</a>.</div>
 {% elif draft.status == 'approved' %}
-<div class="banner ok"><b>Approved.</b> {% if approval %}{% if approval.action == 'draft.auto_approved' %}Cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}Approved by {{ approval.actor }}{% endif %} on {{ approval.created_at | when }}.{% endif %} Version {{ n }} is locked. <a href="/drafts/{{ draft.id }}/record.pdf">Download the approval record (PDF)</a>.</div>
+<div class="banner ok approved"><span class="stamp" aria-hidden="true">APPROVED<small>BRANDPROOF · V{{ n }}</small></span><b>Approved.</b> {% if approval %}{% if approval.action == 'draft.auto_approved' %}Cleared automatically by policy ({{ approval.detail_obj.policy }}){% else %}Approved by {{ approval.actor }}{% endif %} on {{ approval.created_at | when }}.{% endif %} Version {{ n }} is locked. <a href="/drafts/{{ draft.id }}/record.pdf">Download the approval record (PDF)</a>.</div>
 {% elif draft.status == 'in_review' %}
 <div class="banner info"><b>In review.</b> Sent to a reviewer because {{ draft.review_reason }}.
   {% if role == 'creator' and is_demo %}Switch to <b>{{ roles.reviewer.name }} ({{ roles.reviewer.label }})</b> at the top right to approve or request changes.{% endif %}</div>
@@ -56,7 +56,7 @@
 
 <section class="scores" aria-label="Scores by dimension">
   {% for dim in DIMENSIONS %}{% set s = summary.dimensions[dim] %}
-  <div class="score {% if s.score is none %}na{% elif s.score >= 90 %}good{% elif s.score >= 60 %}mid{% else %}bad{% endif %}">
+  <div class="score {% if s.score is none %}na{% elif s.score >= 90 %}good{% elif s.score >= 60 %}mid{% else %}bad{% endif %}" style="--s: {{ s.score if s.score is not none else 0 }}">
     <span class="score-label">{{ DIMENSION_LABELS[dim] }}</span>
     <span class="score-val">{% if s.score is none %}n/a{% else %}{{ s.score }}{% endif %}</span>
     <span class="score-sub">{% if s.score is none %}not applicable{% elif s.issues %}{{ s.issues }} issue{{ 's' if s.issues != 1 }}{% else %}no issues{% endif %}</span>
