@@ -22,6 +22,20 @@ from .jobs import Jobs
 from .seed import seed_demo
 from .web import HERE, S, SessionMiddleware, need_ws, render
 
+def _load_dotenv(path: str = ".env") -> None:
+    """Read KEY=value lines from a local .env file (never overrides real environment variables)."""
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.split(" #", 1)[0].strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                if v.strip():
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
 log = logging.getLogger("brandproof")
 
