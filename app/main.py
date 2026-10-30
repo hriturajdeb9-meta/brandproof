@@ -59,7 +59,34 @@ def init(database: Database | None = None) -> None:
 async def lifespan(app):
     if S.db is None:
         init()
+    if os.environ.get("PORT") and S.db.kind == "postgres":  # hosted: warm the read cache for the demo people
+        import threading
+        threading.Thread(target=_warm_up, args=(int(os.environ["PORT"]),), daemon=True).start()
     yield
+
+
+def _warm_up(port: int) -> None:
+    """After a start (deploy or wake from sleep), open the main pages once as each demo person, so the first
+    visitor's clicks are answered from memory instead of waiting on the distant database. Reads only."""
+    import http.cookiejar
+    import time
+    import urllib.parse
+    import urllib.request
+
+    base = f"http://127.0.0.1:{port}"
+    time.sleep(2)
+    try:
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+        pages = {"reviewer": ["/review", "/kit", "/insights", "/"], "brand": ["/kit", "/insights", "/guidelines", "/team", "/"],
+                 "creator": ["/kit", "/insights", "/review", "/team", "/about", "/drafts/new", "/"]}
+        for role, urls in pages.items():
+            body = urllib.parse.urlencode({"role": role, "back": "/"}).encode()
+            opener.open(urllib.request.Request(base + "/demo/as", data=body, headers={"Origin": base}), timeout=30).read()
+            for u in urls:
+                opener.open(base + u, timeout=30).read()
+        log.info("Read cache warmed for the demo")
+    except Exception as exc:  # only a speed-up; never matters if it fails
+        log.info("Warm-up skipped: %s", exc)
 
 
 # --------------------------------------------------------------------------- simple pages
