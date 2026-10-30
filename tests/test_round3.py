@@ -212,6 +212,15 @@ class WorkflowTests(unittest.TestCase):
         wait(S)
         self.assertIn("v2", c.get(first).text)
 
+    def test_oversized_upload_gets_a_clear_message(self):
+        c = self.client
+        c.get("/")
+        r = c.post("/drafts", files={"doc": ("huge.pdf", b"0" * (11 * 1024 * 1024), "application/pdf")},
+                   headers={"referer": "http://testserver/drafts/new"}, follow_redirects=False)
+        self.assertEqual(r.status_code, 303)
+        self.assertIn("/drafts/new", r.headers["location"])
+        self.assertIn("too%20large", r.headers["location"])
+
     def test_fix_all_applies_every_text_fix_once(self):
         c, S = self.client, self.S
         r = c.post("/drafts", data={"title": "Fix all", "body": "GUARANTEED 12% returns 🚀 Sign-up now!"})

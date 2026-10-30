@@ -21,7 +21,9 @@ from .ai import AIGateway
 from .db import Database
 from .jobs import Jobs
 from .seed import seed_demo
-from .web import HERE, S, SessionMiddleware, need_ws, render
+from .web import HERE, S, SessionMiddleware, go, need_ws, render
+
+MAX_BODY = 10 * 1024 * 1024  # whole form; single files are limited to 8 MB by the upload reader
 
 def _load_dotenv(path: str = ".env") -> None:
     """Read KEY=value lines from a local .env file (never overrides real environment variables)."""
@@ -155,6 +157,16 @@ class SameOriginPosts:
                 log.warning("Refused cross-site POST to %s from %s", scope["path"], origin)
                 await PlainTextResponse("Cross-site form posts are not allowed.", status_code=403)(scope, receive, send)
                 return
+            try:
+                size = int(headers.get(b"content-length", b"0") or 0)
+            except ValueError:
+                size = 0
+            if size > MAX_BODY:  # answer with a clear message before reading the upload
+                back = urlsplit(headers.get(b"referer", b"").decode("latin-1"))
+                url = back.path if back.netloc in hosts and back.path.startswith("/") else "/drafts/new"
+                await go(url, f"That upload is too large ({size / 1048576:.0f} MB). Files can be up to 8 MB; "
+                              "compress the image or split the PDF.", "error")(scope, receive, send)
+                return
         await self.app(scope, receive, send)
 
 
@@ -241,4 +253,5 @@ routes = [
 app = Starlette(routes=routes, lifespan=lifespan,
                 middleware=[Middleware(GZipMiddleware, minimum_size=800), Middleware(SameOriginPosts),
                             Middleware(SessionMiddleware)],
-                exception_handlers={HTTPException: http_error, 500: server_error}, max_body_size=10 * 1024 * 1024)
+                exception_handlers={HTTPException: http_error, 500: server_error},
+                max_body_size=5 * MAX_BODY)  # hard stop for bodies without a size; normal oversize gets a message above
