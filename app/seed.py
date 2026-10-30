@@ -269,6 +269,7 @@ def seed_demo(db: Database) -> int:
     with db.as_system():
         if db.claim_once("demo_seeded"):
             db.claim_once("demo_cleaned_v3")  # a fresh demo has nothing to clean
+            db.claim_once("demo_cleaned_v4")
             ws = db.insert("INSERT INTO workspaces (name, is_demo, disclaimer, created_at) VALUES (?, 1, ?, ?) RETURNING id",
                            ("Paisaleaf (demo)", DISCLAIMER, now_iso()))
             ensure_demo_people(db, ws)
@@ -280,7 +281,9 @@ def seed_demo(db: Database) -> int:
         ws = demo_workspace_id(db)
         if ws:
             ensure_demo_people(db, ws)
-            if db.claim_once("demo_cleaned_v3"):
+            v3 = db.claim_once("demo_cleaned_v3")
+            v4 = db.claim_once("demo_cleaned_v4")  # once more after the final checks, so judges start clean
+            if v3 or v4:
                 clean_demo_activity(db, ws)
         return ws
 
