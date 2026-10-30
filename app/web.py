@@ -152,7 +152,35 @@ def need_ws(request: Request) -> Ctx:
     return c
 
 
+_CACHE: dict = {}
+_CACHE_SECONDS = 20
+
+
+def cached(key, fn):
+    """Tiny time-based cache for lookups done on every page (the database may be far from the server).
+    Safe for roles: PostgreSQL row-level security still checks the live membership on every query."""
+    import time
+    hit = _CACHE.get(key)
+    if hit and time.time() - hit[0] < _CACHE_SECONDS:
+        return hit[1]
+    val = fn()
+    if len(_CACHE) > 2000:
+        _CACHE.clear()
+    _CACHE[key] = (time.time(), val)
+    return val
+
+
+def forget(*prefixes) -> None:
+    for k in list(_CACHE):
+        if not prefixes or (isinstance(k, tuple) and k[0] in prefixes):
+            _CACHE.pop(k, None)
+
+
 def people(ws: int | None) -> dict:
+    return cached(("people", ws), lambda: _people(ws))
+
+
+def _people(ws: int | None) -> dict:
     """Role -> first member with that role (name and title); used for hints like 'Switch to Meera'."""
     out = {k: {"name": "", "label": v["label"], "about": v["can"]} for k, v in auth.ROLES.items()}
     if not ws:
@@ -336,6 +364,10 @@ def session_cookie_header(value: str, https: bool, clear: bool = False) -> bytes
 
 
 def build_ctx(user_id: int, workspace_id: int | None) -> Ctx | None:
+    return cached(("ctx", user_id, workspace_id), lambda: _build_ctx(user_id, workspace_id))
+
+
+def _build_ctx(user_id: int, workspace_id: int | None) -> Ctx | None:
     user = auth.get_user(S.db, user_id)
     if not user:
         return None
@@ -398,6 +430,7 @@ class SessionMiddleware:
 def set_session(request: Request, user_id: int, workspace_id: int | None) -> None:
     """Ask the middleware to send a new session cookie with this response."""
     request.scope["bp_new_cookie"] = S.sessions.sign(user_id, workspace_id)
+    forget()
     if workspace_id:
         with S.db.as_system():
             S.db.execute("UPDATE users SET last_workspace = ? WHERE id = ?", (workspace_id, user_id))

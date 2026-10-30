@@ -31,18 +31,21 @@ RULE_FIELDS = KIT_TABLES["rules"]
 UNTESTABLE = {"R-VIS-01", "R-ACC-01", "R-ACC-02"}  # need an image, not a text example
 
 
-def rules_with_tests(ws: int) -> list[dict]:
+def rules_with_tests(ws: int, save_tests: bool = False) -> list[dict]:
     rules = S.db.all("SELECT * FROM rules WHERE workspace_id = ? ORDER BY id", (ws,))
     tests = {}
     for v in S.db.all("SELECT rule_id, version, tests FROM rule_versions WHERE workspace_id = ? AND tests IS NOT NULL", (ws,)):
         tests[(v["rule_id"], v["version"])] = json.loads(v["tests"] or "{}")
+    base_kit = None
     for r in rules:
         r["tests"] = tests.get((r["id"], r.get("version") or 1))
         if r["tests"] is None and r.get("method") == "code":  # e.g. seeded rules: run their example tests once
             try:
-                r["tests"] = run_rule_tests(ws, r, use_ai=False)
-                S.db.execute("UPDATE rule_versions SET tests = ? WHERE workspace_id = ? AND rule_id = ? AND version = ?",
-                             (json.dumps(r["tests"]), ws, r["id"], r.get("version") or 1))
+                base_kit = base_kit or load_kit(S.db, ws)
+                r["tests"] = run_rule_tests(ws, r, use_ai=False, base_kit=base_kit)
+                if save_tests:  # only the brand manager may write rule history
+                    S.db.execute("UPDATE rule_versions SET tests = ? WHERE workspace_id = ? AND rule_id = ? AND version = ?",
+                                 (json.dumps(r["tests"]), ws, r["id"], r.get("version") or 1))
             except Exception:
                 pass
         r["built_in"] = BUILT_IN.get(r["id"])
@@ -57,7 +60,7 @@ async def kit_page(request: Request):
     kit = load_kit(S.db, c.ws)
     edit_id = request.query_params.get("edit")
     rows = {
-        "rules": rules_with_tests(c.ws),
+        "rules": rules_with_tests(c.ws, save_tests=c.role == "brand"),
         "glossary": S.db.all("SELECT * FROM glossary WHERE workspace_id = ? ORDER BY id", (c.ws,)),
         "facts": S.db.all("SELECT * FROM facts WHERE workspace_id = ? ORDER BY id", (c.ws,)),
         "palette": S.db.all("SELECT * FROM palette WHERE workspace_id = ? ORDER BY id", (c.ws,)),
@@ -169,7 +172,7 @@ def save_rule(ws: int, row: dict, actor: str, note: str = "", source_quote: str 
     return version
 
 
-def run_rule_tests(ws: int, rule: dict, use_ai: bool) -> dict:
+def run_rule_tests(ws: int, rule: dict, use_ai: bool, base_kit=None) -> dict:
     """Examples run as tests: the "don't" example should break the rule and the "do" example should not."""
     rid = rule["id"]
     out = {"ran_at": now_iso(), "ai": use_ai, "cases": []}
@@ -181,9 +184,11 @@ def run_rule_tests(ws: int, rule: dict, use_ai: bool) -> dict:
         out["status"] = "n/a"
         out["note"] = "Add a “don't” example to test this rule."
         return out
-    kit = load_kit(S.db, ws)
+    import copy
+    kit = copy.copy(base_kit) if base_kit is not None else load_kit(S.db, ws)
+    kit.rules = dict(kit.rules)
+    kit.compiled = {}
     kit.rules[rid] = dict(rule, active=1, workspace_id=ws)  # test the version being saved
-    kit.compiled.pop(rid, None)
     off = S.ai_off
     for label, text, should_fire in (("Don't example", rule.get("dont_example"), True), ("Do example", rule.get("do_example"), False)):
         text = (text or "").strip()

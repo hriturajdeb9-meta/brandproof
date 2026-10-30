@@ -17,7 +17,6 @@ Choosing models (no code changes needed)
   AI_ROUTE_IMAGE=...                                                  image reading
   AI_PROVIDER=none                                                    AI off (code checks only)
   AI_PROVIDER=fake                                                    tests
-The brand manager can also change the route per job on the "How it works" page (stored in the database).
 Steps whose API key is missing are skipped automatically.
 
 Every call is logged to `ai_calls`; answers are cached by a hash of (job, route, prompt, image), so the
@@ -130,13 +129,12 @@ class AIGateway:
         """The route for a job before filtering by available keys, plus where it came from."""
         if self.mode == "fake":
             return [("fake", "fake")], "tests"
+        if self.mode == "none":
+            return [], "AI switched off"
         kind = JOBS.get(job, ("", "text"))[1]
         env = os.environ.get(f"AI_ROUTE_{job.upper()}")
         if env:
             return parse_route(env), f"AI_ROUTE_{job.upper()} setting"
-        saved = self._saved_routes().get(job)
-        if saved:
-            return parse_route(saved), "chosen on the How it works page"
         if kind != "image" and kind != "verify" and os.environ.get("AI_ROUTE"):
             return parse_route(os.environ["AI_ROUTE"]), "AI_ROUTE setting"
         steps = parse_route(DEFAULT_ROUTES[kind])

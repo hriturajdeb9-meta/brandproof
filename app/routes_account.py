@@ -10,7 +10,7 @@ from . import auth
 from .auth import AuthError
 from .db import now_iso
 from .seed import seed_kit_rows
-from .web import S, clear_session, ctx_of, go, need_role, read_form, render, safe_back, set_session
+from .web import S, clear_session, forget, ctx_of, go, need_role, read_form, render, safe_back, set_session
 
 KITS = {"starter": "Starter rules (claims, tone, accessibility, confidentiality) to adapt",
         "demo": "A copy of the Paisaleaf demo kit, to explore with sample rules and facts",
@@ -226,6 +226,7 @@ async def team_page(request: Request):
 async def team_save(request: Request):
     """Demo workspace: rename the demo people. Real workspaces: add, change or remove members."""
     c = need_role(request, "brand")
+    forget()
     form = await read_form(request)
     action = form.get("action") or ("reset" if form.get("reset") == "1" else "rename")
     rows = team_rows(c.ws)

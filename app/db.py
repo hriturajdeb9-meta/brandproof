@@ -357,13 +357,13 @@ class Database:
         want = _acting.get()
         if want == self._state:
             return
+        # one round trip each way (the database may be far away); the ids are integers, so inlining them is safe
         if want is None:
-            cur.execute("RESET ROLE")
-            cur.execute("SELECT set_config('app.user_id', '', false), set_config('app.workspace_id', '', false)")
+            cur.execute("RESET ROLE; SELECT set_config('app.user_id', '', false), set_config('app.workspace_id', '', false)")
         else:
-            cur.execute("SELECT set_config('app.user_id', %s, false), set_config('app.workspace_id', %s, false)",
-                        (str(want[0]), str(want[1])))
-            cur.execute("SET ROLE bp_app")
+            uid, ws = int(want[0]), int(want[1])
+            cur.execute(f"SELECT set_config('app.user_id', '{uid}', false), set_config('app.workspace_id', '{ws}', false); "
+                        "SET ROLE bp_app")
         self._state = want
 
     def _run(self, sql: str, params=(), fetch: str = "all"):
